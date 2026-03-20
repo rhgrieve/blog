@@ -1,0 +1,105 @@
+---
+import Base from '../../layouts/Base.astro';
+import FormattedDate from '../../components/FormattedDate.astro';
+import { getCollection, render } from 'astro:content';
+
+const entries = (await getCollection('notes'))
+  .filter((e) => !e.data.draft)
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+const rendered = await Promise.all(
+  entries.map(async (entry) => {
+    const { Content } = await render(entry);
+    return { entry, Content };
+  })
+);
+---
+
+<Base title="Notes" description="Short observations and quick thoughts.">
+  <h1>notes</h1>
+  <p class="page-desc">short thoughts, 280 characters or less.</p>
+
+  <div class="timeline">
+    {rendered.map(({ entry, Content }) => (
+      <article class="timeline-entry">
+        <div class="timeline-date mono">
+          <FormattedDate date={entry.data.date} />
+        </div>
+        <div class="timeline-content prose">
+          <Content />
+        </div>
+        {entry.data.tags.length > 0 && (
+          <div class="timeline-tags mono">
+            {entry.data.tags.map((tag) => (
+              <span class="timeline-tag">#{tag}</span>
+            ))}
+          </div>
+        )}
+      </article>
+    ))}
+  </div>
+</Base>
+
+<style>
+  h1 { margin-bottom: 0.5rem; }
+
+  .page-desc {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-bottom: 3rem;
+  }
+
+  .timeline {
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--border);
+    margin-left: 0.25rem;
+    padding-left: 1.75rem;
+    gap: 2.5rem;
+  }
+
+  .timeline-entry {
+    position: relative;
+  }
+
+  .timeline-entry::before {
+    content: '';
+    position: absolute;
+    left: calc(-1.75rem - 3px);
+    top: 0.35rem;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    opacity: 0.3;
+  }
+
+  .timeline-date {
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    opacity: 0.5;
+    margin-bottom: 0.5rem;
+  }
+
+  .timeline-content {
+    text-transform: lowercase;
+    font-size: 0.92rem;
+    line-height: 1.7;
+  }
+
+  .timeline-content :global(p:first-child) {
+    margin-top: 0;
+  }
+
+  .timeline-tags {
+    margin-top: 0.6rem;
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.68rem;
+  }
+
+  .timeline-tag {
+    color: var(--accent);
+    opacity: 0.35;
+  }
+</style>

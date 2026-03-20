@@ -1,0 +1,236 @@
+---
+import Base from '../layouts/Base.astro';
+import EntryList from '../components/EntryList.astro';
+import FormattedDate from '../components/FormattedDate.astro';
+import { getCollection, render } from 'astro:content';
+
+const writing = await getCollection('writing');
+const notes = await getCollection('notes');
+const projects = await getCollection('projects');
+
+const recentWriting = writing
+  .filter((e) => !e.data.draft)
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
+  .slice(0, 3);
+
+const recentNotes = notes
+  .filter((e) => !e.data.draft)
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
+  .slice(0, 3);
+
+const renderedNotes = await Promise.all(
+  recentNotes.map(async (entry) => {
+    const { Content } = await render(entry);
+    return { entry, Content };
+  })
+);
+---
+
+<Base title="Home">
+  <section class="hero">
+    <p class="hero-text">
+      Building things,<br />
+      writing things down,<br />
+      figuring it out as I go.
+    </p>
+    <span class="hero-rule"></span>
+  </section>
+
+  {recentWriting.length > 0 && (
+    <section class="section">
+      <h2 class="section-heading">
+        <a href="/writing">Writing</a>
+      </h2>
+      <EntryList entries={recentWriting} basePath="/writing" />
+    </section>
+  )}
+
+  {renderedNotes.length > 0 && (
+    <section class="section">
+      <h2 class="section-heading">
+        <a href="/notes">Notes</a>
+      </h2>
+      <div class="timeline">
+        {renderedNotes.map(({ entry, Content }) => (
+          <article class="timeline-entry">
+            <div class="timeline-date mono">
+              <FormattedDate date={entry.data.date} />
+            </div>
+            <div class="timeline-content prose">
+              <Content />
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  )}
+
+  {projects.filter((e) => !e.data.draft).length > 0 && (
+    <section class="section">
+      <h2 class="section-heading">
+        <a href="/projects">Projects</a>
+      </h2>
+      <div class="registry">
+        {projects
+          .filter((e) => !e.data.draft)
+          .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
+          .map((entry) => (
+            <a href={`/projects/${entry.id}`} class="registry-row">
+              <span class="reg-name">{entry.data.title}</span>
+              <span class="reg-meta mono">
+                <span class={`reg-status reg-status--${entry.data.status}`}>{entry.data.status}</span>
+              </span>
+            </a>
+          ))}
+      </div>
+    </section>
+  )}
+</Base>
+
+<style>
+  .hero {
+    padding: 12vh 0 10vh;
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+  }
+
+  .hero-text {
+    font-size: clamp(1.8rem, 4.5vw, 2.8rem);
+    line-height: 1.3;
+    letter-spacing: -0.035em;
+    color: var(--text-dim);
+    font-weight: 300;
+    max-width: none;
+  }
+
+  .hero-rule {
+    display: block;
+    width: 3rem;
+    height: 1px;
+    background: var(--text-dim);
+    opacity: 0.2;
+  }
+
+  .section {
+    padding-top: 6rem;
+  }
+
+  .section:nth-child(3) {
+    padding-top: 7.5rem;
+  }
+
+  .section:nth-child(4) {
+    padding-top: 5.5rem;
+  }
+
+  .section-heading {
+    margin-bottom: 1rem;
+    padding-left: 0.1rem;
+    font-size: 0.68rem;
+    font-family: var(--font-mono);
+    letter-spacing: 0.14em;
+    font-weight: 400;
+  }
+
+  .section-heading a {
+    color: var(--text-dim);
+  }
+  .section-heading a:hover {
+    color: var(--accent);
+  }
+
+  .timeline {
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--border);
+    margin-left: 0.25rem;
+    padding-left: 1.75rem;
+    gap: 2rem;
+  }
+
+  .timeline-entry {
+    position: relative;
+  }
+
+  .timeline-entry::before {
+    content: '';
+    position: absolute;
+    left: calc(-1.75rem - 3px);
+    top: 0.35rem;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    opacity: 0.3;
+  }
+
+  .timeline-date {
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    opacity: 0.5;
+    margin-bottom: 0.4rem;
+  }
+
+  .timeline-content {
+    text-transform: lowercase;
+    font-size: 0.88rem;
+    line-height: 1.65;
+  }
+
+  .timeline-content :global(p:first-child) {
+    margin-top: 0;
+  }
+
+  /* registry (projects) */
+  .registry {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .registry-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 0.5rem 0;
+    color: var(--text);
+    transition: transform 0.12s ease;
+  }
+
+  .registry-row:hover {
+    transform: translateX(2px);
+  }
+
+  .registry-row:hover .reg-name {
+    color: var(--text-bright);
+  }
+
+  .registry-row:hover .reg-meta {
+    opacity: 0.3;
+  }
+
+  .reg-name {
+    font-weight: 500;
+    font-size: 0.92rem;
+    transition: color 0.12s ease;
+  }
+
+  .reg-meta {
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    opacity: 0.55;
+    letter-spacing: 0.1em;
+    transition: opacity 0.12s ease;
+  }
+
+  .reg-status--active {
+    color: var(--accent);
+    opacity: 0.5;
+  }
+
+  .reg-status--archived {
+    opacity: 0.4;
+  }
+</style>
+

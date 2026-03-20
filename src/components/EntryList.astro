@@ -1,0 +1,92 @@
+---
+import FormattedDate from './FormattedDate.astro';
+
+interface Entry {
+  id: string;
+  data: {
+    title: string;
+    date: Date;
+    summary?: string;
+    draft?: boolean;
+  };
+}
+
+interface Props {
+  entries: Entry[];
+  basePath: string;
+  showSummary?: boolean;
+}
+
+const { entries, basePath, showSummary = false } = Astro.props;
+
+const published = entries
+  .filter((e) => !e.data.draft)
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+---
+
+{published.length === 0 && <p class="dim">Nothing here yet.</p>}
+
+<ul class="entry-list">
+  {published.map((entry) => (
+    <li>
+      <a href={`${basePath}/${entry.id}`}>
+        <span class="entry-title">{entry.data.title}</span>
+        <span class="entry-date mono">
+          <FormattedDate date={entry.data.date} />
+        </span>
+      </a>
+      {showSummary && entry.data.summary && (
+        <p class="entry-summary">{entry.data.summary}</p>
+      )}
+    </li>
+  ))}
+</ul>
+
+<style>
+  .entry-list {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .entry-list li a {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 0.45rem 0;
+    color: var(--text);
+    transition: color 0.12s ease, transform 0.12s ease, text-shadow 0.12s ease;
+  }
+
+  .entry-list li a:hover {
+    color: var(--text-bright);
+    transform: translateX(2px);
+    text-shadow: 0 0 8px var(--accent-glow);
+  }
+
+  .entry-list li a:hover .entry-date {
+    opacity: 0.35;
+  }
+
+  .entry-title {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .entry-date {
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    opacity: 0.55;
+    transition: opacity 0.12s ease;
+  }
+
+  .entry-summary {
+    font-size: 0.84rem;
+    color: var(--text-dim);
+    margin: 0.15rem 0 0.6rem;
+    max-width: var(--measure);
+  }
+</style>

@@ -1,0 +1,52 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="About" description="A bit about me and what I'm up to.">
+  <article class="about">
+    <h1>About</h1>
+    <div class="prose">
+      <p>
+        I build software, mostly. Interested in tools, systems, and the
+        edges where technology meets taste. This site is where I put
+        things I've made and things I've thought about.
+      </p>
+      <p>
+        I care about craft, clarity, and building things that feel
+        considered. Not everything here is polished — some of it is
+        deliberately rough.
+      </p>
+    </div>
+
+    <section class="now">
+      <h2>Now</h2>
+      <div class="prose">
+        <p>
+          Working on a few things. Thinking about a few others. Updating
+          this section when I remember to.
+        </p>
+      </div>
+    </section>
+
+    <section class="elsewhere">
+      <h2>Elsewhere</h2>
+      <div class="prose">
+        <p><a href="https://github.com">GitHub</a></p>
+      </div>
+    </section>
+  </article>
+</Base>
+
+<style>
+  .about h1 {
+    margin-bottom: 1.5rem;
+  }
+
+  .now {
+    margin-top: 4rem;
+  }
+
+  .elsewhere {
+    margin-top: 3rem;
+  }
+</style>

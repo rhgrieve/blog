@@ -1,0 +1,22 @@
+---
+import Base from '../../layouts/Base.astro';
+import EntryList from '../../components/EntryList.astro';
+import { getCollection } from 'astro:content';
+
+const entries = await getCollection('writing');
+---
+
+<Base title="Writing" description="Longer essays and thoughtful posts.">
+  <h1>Writing</h1>
+  <p class="page-desc">Longer form. Essays, reflections, technical thinking.</p>
+  <EntryList entries={entries} basePath="/writing" showSummary={true} />
+</Base>
+
+<style>
+  h1 { margin-bottom: 0.5rem; }
+  .page-desc {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-bottom: 2.5rem;
+  }
+</style>

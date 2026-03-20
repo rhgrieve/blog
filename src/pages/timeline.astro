@@ -1,0 +1,436 @@
+---
+import Base from '../layouts/Base.astro';
+import { getRecentListens, type Listen } from '../lib/spotify';
+import { getRecentActivity, type GitHubActivity } from '../lib/github';
+
+const listens = await getRecentListens(50);
+const githubActivity = await getRecentActivity(30);
+
+// unified timeline entry
+type TimelineItem =
+  | { kind: 'listen'; data: Listen; timestamp: Date }
+  | { kind: 'github'; data: GitHubActivity; timestamp: Date };
+
+const items: TimelineItem[] = [
+  ...listens.map((l) => ({ kind: 'listen' as const, data: l, timestamp: l.playedAt })),
+  ...githubActivity.map((g) => ({ kind: 'github' as const, data: g, timestamp: g.timestamp })),
+].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+function relativeDay(date: Date): string {
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  if (days === 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days} days ago`;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toLowerCase();
+}
+
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+}
+
+// collapse consecutive listen runs (>3) into first + "x more" + last
+type DisplayItem =
+  | TimelineItem
+  | { kind: 'listen-collapsed'; first: TimelineItem; last: TimelineItem; hidden: TimelineItem[]; count: number; artistSummary: string };
+
+function collapseRuns(dayItems: TimelineItem[]): DisplayItem[] {
+  const result: DisplayItem[] = [];
+  let i = 0;
+
+  while (i < dayItems.length) {
+    if (dayItems[i].kind !== 'listen') {
+      result.push(dayItems[i]);
+      i++;
+      continue;
+    }
+
+    // find the run of consecutive listens
+    let runEnd = i;
+    while (runEnd < dayItems.length && dayItems[runEnd].kind === 'listen') {
+      runEnd++;
+    }
+
+    const runLength = runEnd - i;
+    if (runLength > 3) {
+      const hiddenItems = dayItems.slice(i + 1, runEnd - 1);
+      const artists = [...new Set(
+        hiddenItems.map((h) => (h as { data: Listen }).data.artist)
+      )];
+
+      let artistSummary: string;
+      if (artists.length === 1) {
+        artistSummary = artists[0];
+      } else if (artists.length === 2) {
+        artistSummary = `${artists[0]} and ${artists[1]}`;
+      } else {
+        artistSummary = `${artists[0]}, ${artists[1]} and more`;
+      }
+
+      result.push({
+        kind: 'listen-collapsed',
+        first: dayItems[i],
+        last: dayItems[runEnd - 1],
+        hidden: hiddenItems,
+        count: runLength - 2,
+        artistSummary,
+      });
+    } else {
+      for (let j = i; j < runEnd; j++) {
+        result.push(dayItems[j]);
+      }
+    }
+    i = runEnd;
+  }
+
+  return result;
+}
+
+type GroupedDay = {
+  label: string;
+  items: DisplayItem[];
+};
+
+const groupedRaw: { label: string; items: TimelineItem[] }[] = [];
+for (const item of items) {
+  const label = relativeDay(item.timestamp);
+  const existing = groupedRaw.find((g) => g.label === label);
+  if (existing) {
+    existing.items.push(item);
+  } else {
+    groupedRaw.push({ label, items: [item] });
+  }
+}
+
+const groupedCollapsed: GroupedDay[] = groupedRaw.map((g) => ({
+  label: g.label,
+  items: collapseRuns(g.items),
+}));
+
+function shortRepo(full: string): string {
+  return full.includes('/') ? full.split('/')[1] : full;
+}
+
+const typeIcon: Record<GitHubActivity['type'], string> = {
+  push: '↑',
+  pr: '⎇',
+  issue: '○',
+  star: '☆',
+  create: '+',
+  other: '·',
+};
+---
+
+<Base title="Timeline" description="Recent activity.">
+  <h1>timeline</h1>
+  <p class="page-desc">what i've been up to, automatically.</p>
+
+  {items.length === 0 && (
+    <div class="empty">
+      <p class="dim">no activity data available.</p>
+      <p class="dim hint">connect spotify or github to populate this page.</p>
+    </div>
+  )}
+
+  {groupedCollapsed.length > 0 && (
+    <div class="timeline">
+      {groupedCollapsed.map((group) => (
+        <section class="timeline-day">
+          <h2 class="day-label mono">{group.label}</h2>
+          <div class="day-entries">
+            {group.items.map((item) => {
+              if (item.kind === 'listen') {
+                const l = item.data;
+                return (
+                  <a href={l.url} class="timeline-entry" target="_blank" rel="noopener">
+                    <span class="entry-icon">
+                      {l.albumArt ? (
+                        <img src={l.albumArt} alt="" width="32" height="32" loading="lazy" />
+                      ) : (
+                        <span class="icon-placeholder">♫</span>
+                      )}
+                    </span>
+                    <span class="entry-body">
+                      <span class="entry-primary">{l.track}</span>
+                      <span class="entry-secondary">{l.artist}</span>
+                    </span>
+                    <span class="entry-time mono">{formatTime(item.timestamp)}</span>
+                  </a>
+                );
+              } else if (item.kind === 'github') {
+                const g = item.data;
+                return (
+                  <a href={g.url} class="timeline-entry" target="_blank" rel="noopener">
+                    <span class="entry-icon gh-icon mono">
+                      <span>{typeIcon[g.type]}</span>
+                    </span>
+                    <span class="entry-body">
+                      <span class="entry-primary">{g.description}</span>
+                      <span class="entry-secondary">{shortRepo(g.repo)}</span>
+                    </span>
+                    <span class="entry-time mono">{formatTime(item.timestamp)}</span>
+                  </a>
+                );
+              } else {
+                // collapsed listen run
+                const c = item;
+                const first = c.first as { kind: 'listen'; data: Listen; timestamp: Date };
+                const last = c.last as { kind: 'listen'; data: Listen; timestamp: Date };
+                const fl = first.data;
+                const ll = last.data;
+                return (
+                  <div class="listen-group">
+                    <a href={fl.url} class="timeline-entry" target="_blank" rel="noopener">
+                      <span class="entry-icon">
+                        {fl.albumArt ? (
+                          <img src={fl.albumArt} alt="" width="32" height="32" loading="lazy" />
+                        ) : (
+                          <span class="icon-placeholder">♫</span>
+                        )}
+                      </span>
+                      <span class="entry-body">
+                        <span class="entry-primary">{fl.track}</span>
+                        <span class="entry-secondary">{fl.artist}</span>
+                      </span>
+                      <span class="entry-time mono">{formatTime(first.timestamp)}</span>
+                    </a>
+
+                    <button class="listen-expand" data-expand>
+                      <span class="expand-dots">···</span>
+                      <span class="expand-label">{c.count} more featuring {c.artistSummary}</span>
+                      <span class="expand-dots">···</span>
+                    </button>
+
+                    <div class="listen-hidden" data-hidden>
+                      {c.hidden.map((h) => {
+                        const hl = (h as { kind: 'listen'; data: Listen; timestamp: Date }).data;
+                        return (
+                          <a href={hl.url} class="timeline-entry" target="_blank" rel="noopener">
+                            <span class="entry-icon">
+                              {hl.albumArt ? (
+                                <img src={hl.albumArt} alt="" width="32" height="32" loading="lazy" />
+                              ) : (
+                                <span class="icon-placeholder">♫</span>
+                              )}
+                            </span>
+                            <span class="entry-body">
+                              <span class="entry-primary">{hl.track}</span>
+                              <span class="entry-secondary">{hl.artist}</span>
+                            </span>
+                            <span class="entry-time mono">{formatTime(h.timestamp)}</span>
+                          </a>
+                        );
+                      })}
+                    </div>
+
+                    <a href={ll.url} class="timeline-entry" target="_blank" rel="noopener">
+                      <span class="entry-icon">
+                        {ll.albumArt ? (
+                          <img src={ll.albumArt} alt="" width="32" height="32" loading="lazy" />
+                        ) : (
+                          <span class="icon-placeholder">♫</span>
+                        )}
+                      </span>
+                      <span class="entry-body">
+                        <span class="entry-primary">{ll.track}</span>
+                        <span class="entry-secondary">{ll.artist}</span>
+                      </span>
+                      <span class="entry-time mono">{formatTime(last.timestamp)}</span>
+                    </a>
+                  </div>
+                );
+              }
+            })}
+          </div>
+        </section>
+      ))}
+    </div>
+  )}
+</Base>
+
+<style>
+  h1 { margin-bottom: 0.5rem; }
+
+  .page-desc {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-bottom: 3rem;
+  }
+
+  .empty {
+    padding: 2rem 0;
+  }
+
+  .hint {
+    font-size: 0.82rem;
+    margin-top: 0.5rem;
+  }
+
+  .timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+  }
+
+  .timeline-day {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .day-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    opacity: 0.5;
+    font-weight: 400;
+    margin-bottom: 0.5rem;
+    padding-left: 0.1rem;
+  }
+
+  .day-entries {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .timeline-entry {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    color: var(--text);
+    transition: transform 0.12s ease, color 0.12s ease;
+  }
+
+  .timeline-entry:hover {
+    transform: translateX(2px);
+    color: var(--text-bright);
+  }
+
+  .timeline-entry:hover .entry-time {
+    opacity: 0.25;
+  }
+
+  .entry-icon {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .entry-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 4px;
+  }
+
+  .gh-icon {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    opacity: 0.6;
+  }
+
+  .icon-placeholder {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    opacity: 0.4;
+  }
+
+  .entry-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  .entry-primary {
+    font-size: 0.88rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .entry-secondary {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .entry-time {
+    flex-shrink: 0;
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    opacity: 0.4;
+    transition: opacity 0.12s ease;
+  }
+
+  .listen-group {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .listen-expand {
+    background: none;
+    border: none;
+    padding: 0.5rem 0;
+    margin-left: 2.85rem;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    opacity: 0.35;
+    cursor: pointer;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    transition: opacity 0.12s ease;
+  }
+
+  .listen-expand:hover {
+    opacity: 0.6;
+  }
+
+  .expand-dots {
+    font-size: 0.6rem;
+    letter-spacing: 0.25em;
+    opacity: 0.5;
+  }
+
+  .expand-label {
+    font-size: 0.72rem;
+  }
+
+  .listen-hidden {
+    display: none;
+    flex-direction: column;
+  }
+
+  .listen-hidden.expanded {
+    display: flex;
+  }
+</style>
+
+<script>
+  document.querySelectorAll('[data-expand]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const hidden = btn.nextElementSibling as HTMLElement;
+      if (hidden?.classList.contains('expanded')) {
+        hidden.classList.remove('expanded');
+        (btn as HTMLElement).style.display = '';
+      } else {
+        hidden?.classList.add('expanded');
+        (btn as HTMLElement).style.display = 'none';
+      }
+    });
+  });
+</script>

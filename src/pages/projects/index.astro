@@ -1,0 +1,123 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+
+const entries = (await getCollection('projects'))
+  .filter((e) => !e.data.draft)
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+function shortDate(date: Date) {
+  return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toLowerCase();
+}
+---
+
+<Base title="Projects" description="Experiments, tools, and things I've built.">
+  <h1>projects</h1>
+  <p class="page-desc">registry of things built, in progress, or archived.</p>
+
+  <div class="registry">
+    {entries.map((entry) => (
+      <a href={`/projects/${entry.id}`} class="registry-row">
+        <div class="reg-primary">
+          <span class="reg-name">{entry.data.title}</span>
+          {entry.data.summary && (
+            <span class="reg-desc">{entry.data.summary}</span>
+          )}
+        </div>
+        <span class="reg-meta mono">
+          <span class={`reg-status reg-status--${entry.data.status}`}>{entry.data.status}</span>
+          <span class="reg-date">{shortDate(entry.data.date)}</span>
+        </span>
+      </a>
+    ))}
+  </div>
+</Base>
+
+<style>
+  h1 { margin-bottom: 0.5rem; }
+
+  .page-desc {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-bottom: 3rem;
+  }
+
+  .registry {
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+  }
+
+  .registry-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1.5rem;
+    color: var(--text);
+    transition: transform 0.12s ease;
+  }
+
+  .registry-row:hover {
+    transform: translateX(2px);
+  }
+
+  .registry-row:hover .reg-name {
+    color: var(--text-bright);
+  }
+
+  .registry-row:hover .reg-meta {
+    opacity: 0.3;
+  }
+
+  .reg-primary {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .reg-name {
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: color 0.12s ease;
+  }
+
+  .reg-desc {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    max-width: var(--measure);
+  }
+
+  .reg-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    opacity: 0.55;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: opacity 0.12s ease;
+  }
+
+  .reg-status {
+    letter-spacing: 0.1em;
+  }
+
+  .reg-status--active {
+    color: var(--accent);
+    opacity: 0.5;
+  }
+
+  .reg-status--archived {
+    opacity: 0.4;
+  }
+
+  .reg-status--wip {
+    color: #f0c040;
+    opacity: 0.5;
+  }
+
+  .reg-date {
+    opacity: 0.7;
+  }
+</style>

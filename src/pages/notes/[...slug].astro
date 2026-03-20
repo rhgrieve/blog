@@ -1,0 +1,60 @@
+---
+import { getCollection, render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import FormattedDate from '../../components/FormattedDate.astro';
+
+export async function getStaticPaths() {
+  const entries = await getCollection('notes');
+  return entries.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+---
+
+<Base title="note" description="a note.">
+  <article>
+    <div class="note-meta mono">
+      <FormattedDate date={entry.data.date} />
+      {entry.data.tags.length > 0 && (
+        <span class="note-tags">
+          {entry.data.tags.map((tag) => (
+            <span class="note-tag">#{tag}</span>
+          ))}
+        </span>
+      )}
+    </div>
+    <div class="prose note-body">
+      <Content />
+    </div>
+  </article>
+</Base>
+
+<style>
+  .note-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    opacity: 0.55;
+    margin-bottom: 1.5rem;
+  }
+
+  .note-tags {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .note-tag {
+    color: var(--accent);
+    opacity: 0.35;
+  }
+
+  .note-body {
+    text-transform: lowercase;
+  }
+</style>
