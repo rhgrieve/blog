@@ -168,7 +168,6 @@ const renderedNotes = await Promise.all(
   .timeline-date {
     font-size: 0.68rem;
     color: var(--text-dim);
-    opacity: 0.5;
     margin-bottom: 0.4rem;
   }
 
@@ -207,7 +206,7 @@ const renderedNotes = await Promise.all(
   }
 
   .registry-row:hover .reg-meta {
-    opacity: 0.3;
+    opacity: 0.8;
   }
 
   .reg-name {
@@ -219,18 +218,14 @@ const renderedNotes = await Promise.all(
   .reg-meta {
     font-size: 0.68rem;
     color: var(--text-dim);
-    opacity: 0.55;
     letter-spacing: 0.1em;
-    transition: opacity 0.12s ease;
   }
 
   .reg-status--active {
     color: var(--accent);
-    opacity: 0.5;
   }
 
   .reg-status--archived {
-    opacity: 0.4;
   }
 </style>
 

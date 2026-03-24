@@ -1,0 +1,27 @@
+name = "timeline-worker"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+
+[triggers]
+crons = ["*/15 * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "timeline-db"
+database_id = "2a1cb590-cf39-4402-8f17-4d5bc6eb1a25"  # fill after running: wrangler d1 create timeline-db
+
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
+

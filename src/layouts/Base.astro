@@ -18,8 +18,9 @@ const pageTitle = title === 'Home' ? siteTitle : `${title} — ${siteTitle}`;
     <meta name="description" content={description} />
     <title>{pageTitle}</title>
     <link rel="alternate" type="application/rss+xml" title={siteTitle} href="/rss.xml" />
-    <link rel="preconnect" href="https://rsms.me/" />
-    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+    <link rel="preconnect" href="https://rsms.me/" crossorigin />
+    <link rel="preload" href="https://rsms.me/inter/inter.css" as="style" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript><link rel="stylesheet" href="https://rsms.me/inter/inter.css" /></noscript>
   </head>
   <body>
     <canvas id="glow-canvas" aria-hidden="true"></canvas>
@@ -32,7 +33,7 @@ const pageTitle = title === 'Home' ? siteTitle : `${title} — ${siteTitle}`;
             <a href="/notes">Notes</a>
             <a href="/projects">Projects</a>
             <a href="/about">About</a>
-            <a href="/timeline">Timeline</a>
+            <a href="/activity">Activity</a>
             <button id="glow-toggle" class="glow-toggle" aria-label="Toggle light effect">
               <span class="glow-toggle-dot"></span>
             </button>
