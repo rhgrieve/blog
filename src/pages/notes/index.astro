@@ -28,13 +28,6 @@ const rendered = await Promise.all(
         <div class="timeline-content prose">
           <Content />
         </div>
-        {entry.data.tags.length > 0 && (
-          <div class="timeline-tags mono">
-            {entry.data.tags.map((tag) => (
-              <span class="timeline-tag">#{tag}</span>
-            ))}
-          </div>
-        )}
       </article>
     ))}
   </div>
@@ -90,14 +83,4 @@ const rendered = await Promise.all(
     margin-top: 0;
   }
 
-  .timeline-tags {
-    margin-top: 0.6rem;
-    display: flex;
-    gap: 0.5rem;
-    font-size: 0.68rem;
-  }
-
-  .timeline-tag {
-    color: var(--accent);
-  }
 </style>
