@@ -296,7 +296,7 @@ const githubLogo = '<path fill="#8b949e" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6
     gap: 0.25rem;
   }
 
-  :global(.day-label) {
+  :global(h2.day-label) {
     font-size: 0.65rem;
     letter-spacing: 0.12em;
     color: var(--text-dim);
@@ -494,11 +494,12 @@ const githubLogo = '<path fill="#8b949e" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6
       if (dateStr === yesterdayStr) return 'yesterday';
 
       const diff = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-      if (diff < 7) return `${diff} days ago`;
+      if (diff === 1) return '1 day ago';
+    if (diff < 7) return `${diff} days ago`;
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toLowerCase();
     }
 
-    const stepsSvg = '<svg viewBox="0 0 16 16" width="11" height="11"><path fill="currentColor" d="M4.5 2a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm2.4 5.55L5.15 13.3a.75.75 0 0 1-1.4-.53l1.5-4.87L4 9v2.25a.75.75 0 0 1-1.5 0V8.7a.75.75 0 0 1 .15-.45l2.1-2.7a1.5 1.5 0 0 1 2.35-.1l1.05 1.3a3.76 3.76 0 0 0 2.1 1.3.75.75 0 0 1-.35 1.45 5.25 5.25 0 0 1-2.95-1.95Z"/></svg>';
+    const stepsSvg = '<svg viewBox="0 0 90 90" width="12" height="12"><g fill="currentColor" stroke="none"><path d="M82.73 85.9H56.69c-6.1 0-11.89-2.34-16.29-6.58L4.77 44.91A15.96 15.96 0 0 1 0 33.76c-.02-4.24 1.63-8.22 4.64-11.2L20.13 7.27c4.26-4.2 10.98-4.26 15.3-.12.4.39.63.93.62 1.5-.1 4 1.25 7.27 3.9 9.45 3.56 2.93 9.2 3.81 15.47 2.41a4.98 4.98 0 0 1 4.52 1.05c1.29 1.03 2.03 2.57 2.03 4.22v19.67c0 3.87 3.14 7.01 7.01 7.01h2.82C81.83 52.47 90 60.63 90 70.67v7.95c0 4.01-3.26 7.27-7.27 7.27Z"/><path d="M88 72.67H57.12c-3.7 0-7.2-1.41-9.86-3.98L3.58 26.63a2 2 0 0 1 2.78-2.88l43.68 42.06a9.93 9.93 0 0 0 7.09 2.86H88a2 2 0 0 1 0 4Z"/></g></svg>';
 
     // group items by local date
     const groups: { dateKey: string; label: string; elements: HTMLElement[] }[] = [];
