@@ -108,12 +108,19 @@ function summarizeEvent(
   switch (event.type) {
     case 'PushEvent': {
       const commits = event.payload.commits || [];
-      if (commits.length === 0) return null;
-      const count = commits.length;
-      const msg = commits[0]?.message?.split('\n')[0] || '';
+      const branch = event.payload.ref?.replace('refs/heads/', '') || 'unknown';
+      let description: string;
+      if (commits.length === 0) {
+        description = `pushed to ${branch}`;
+      } else if (commits.length === 1) {
+        description = commits[0]?.message?.split('\n')[0] || `pushed to ${branch}`;
+      } else {
+        const msg = commits[0]?.message?.split('\n')[0] || '';
+        description = `${commits.length} commits — ${msg}`;
+      }
       return {
         type: 'push',
-        description: count === 1 ? msg : `${count} commits — ${msg}`,
+        description,
         repo,
         url: repoUrl,
       };
