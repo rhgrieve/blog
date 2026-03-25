@@ -31,7 +31,10 @@ const { title, date, summary, tags = [] } = Astro.props;
     <div class="e-content prose">
       <slot />
     </div>
-    <a class="p-author h-card" href="https://rhg.sh" hidden>rhg</a>
+    <div class="p-author h-card" hidden>
+      <img class="u-photo" src="/avatar.png" alt="rhg" />
+      <a class="p-name u-url" href="https://rhg.sh">rhg</a>
+    </div>
     <a class="u-url" href={Astro.url.pathname} hidden></a>
   </article>
 </Base>
