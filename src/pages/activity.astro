@@ -43,13 +43,37 @@ function formatTime(date: Date): string {
 // collapse consecutive listen runs (>3) into first + "x more" + last
 type DisplayItem =
   | TimelineItem
-  | { kind: 'listen-collapsed'; first: TimelineItem; last: TimelineItem; hidden: TimelineItem[]; count: number; artistSummary: string };
+  | { kind: 'listen-collapsed'; first: TimelineItem; last: TimelineItem; hidden: TimelineItem[]; count: number; artistSummary: string }
+  | { kind: 'github-merged'; data: GitHubEvent; timestamp: Date; count: number };
 
 function collapseRuns(dayItems: TimelineItem[]): DisplayItem[] {
   const result: DisplayItem[] = [];
   let i = 0;
 
   while (i < dayItems.length) {
+    if (dayItems[i].kind === 'github') {
+      const first = dayItems[i];
+      const g = first.data as GitHubEvent;
+      let runEnd = i + 1;
+      while (
+        runEnd < dayItems.length &&
+        dayItems[runEnd].kind === 'github' &&
+        (dayItems[runEnd].data as GitHubEvent).type === g.type &&
+        (dayItems[runEnd].data as GitHubEvent).description === g.description &&
+        (dayItems[runEnd].data as GitHubEvent).repo === g.repo
+      ) {
+        runEnd++;
+      }
+      const count = runEnd - i;
+      if (count > 1) {
+        result.push({ kind: 'github-merged', data: g, timestamp: first.timestamp, count });
+      } else {
+        result.push(first);
+      }
+      i = runEnd;
+      continue;
+    }
+
     if (dayItems[i].kind !== 'listen') {
       result.push(dayItems[i]);
       i++;
@@ -189,15 +213,16 @@ const githubLogo = '<path fill="#8b949e" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6
                     </span>
                   </a>
                 );
-              } else if (item.kind === 'github') {
-                const g = item.data;
+              } else if (item.kind === 'github' || item.kind === 'github-merged') {
+                const g = item.kind === 'github' ? item.data : item.data;
+                const count = item.kind === 'github-merged' ? item.count : 0;
                 return (
                   <a href={g.url} class="timeline-entry" target="_blank" rel="noopener">
                     <span class="entry-icon gh-action-icon">
                       <svg viewBox="0 0 16 16" width="16" height="16"><Fragment set:html={ghActionIcon[g.type] || ghActionIcon.push} /></svg>
                     </span>
                     <span class="entry-body">
-                      <span class="entry-primary">{g.description}</span>
+                      <span class="entry-primary">{g.description}{count > 1 && <span class="merge-count"> (x{count})</span>}</span>
                       <span class="entry-secondary">{shortRepo(g.repo)}</span>
                     </span>
                     <span class="entry-meta">
@@ -386,6 +411,11 @@ const githubLogo = '<path fill="#8b949e" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6
 
   .gh-action-icon {
     color: var(--text-dim);
+  }
+
+  .merge-count {
+    color: var(--text-dim);
+    font-size: 0.8em;
   }
 
   .icon-placeholder {
