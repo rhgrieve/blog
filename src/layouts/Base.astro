@@ -23,7 +23,7 @@ const pageTitle = title === 'Home' ? siteTitle : `${title} — ${siteTitle}`;
     <link rel="alternate" type="application/rss+xml" title={siteTitle} href="/rss.xml" />
     <link rel="authorization_endpoint" href="https://indieauth.com/auth" />
     <link rel="token_endpoint" href="https://tokens.indieauth.com/token" />
-    <link rel="me" href="https://rhg.sh" />
+    <link rel="me" href="https://github.com/rhgrieve" />
     <link rel="preconnect" href="https://rsms.me/" crossorigin />
     <link rel="preload" href="https://rsms.me/inter/inter.css" as="style" onload="this.onload=null;this.rel='stylesheet'" />
     <noscript><link rel="stylesheet" href="https://rsms.me/inter/inter.css" /></noscript>
@@ -53,6 +53,7 @@ const pageTitle = title === 'Home' ? siteTitle : `${title} — ${siteTitle}`;
       </main>
 
       <footer class="site-footer">
+        <a href="https://github.com/rhgrieve" rel="me" class="footer-link mono">github</a>
         <span class="dim mono">&copy; {new Date().getFullYear()}</span>
       </footer>
     </div>
@@ -132,7 +133,21 @@ const pageTitle = title === 'Home' ? siteTitle : `${title} — ${siteTitle}`;
   .site-footer {
     padding: 2.5rem 0;
     margin-top: auto;
-    text-align: right;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .footer-link {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    opacity: 0.5;
+    transition: opacity 0.12s ease;
+  }
+
+  .footer-link:hover {
+    opacity: 0.8;
   }
 
   #glow-canvas {
