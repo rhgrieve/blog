@@ -17,6 +17,9 @@ pnpm-debug.log*
 .env
 .env.production
 
+# claude plans
+docs/plans/
+
 # macOS-specific files
 .DS_Store
 
