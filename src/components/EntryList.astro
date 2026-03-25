@@ -29,6 +29,10 @@ const published = entries
 
 <ul class="h-feed entry-list">
   {feedName && <span class="p-name" hidden>{feedName}</span>}
+  <div class="p-author h-card" hidden>
+    <img class="u-photo" src="/avatar.png" alt="rhg" />
+    <a class="p-name u-url" href="https://rhg.sh">rhg</a>
+  </div>
   {published.map((entry) => (
     <li class="h-entry">
       <a href={`${basePath}/${entry.id}`} class="u-url">
@@ -40,7 +44,6 @@ const published = entries
       {showSummary && entry.data.summary && (
         <p class="p-summary entry-summary">{entry.data.summary}</p>
       )}
-      <a class="u-author" href="/about" hidden></a>
     </li>
   ))}
 </ul>

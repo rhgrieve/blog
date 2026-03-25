@@ -18,6 +18,10 @@ function shortDate(date: Date) {
 
   <div class="h-feed registry">
     <span class="p-name" hidden>projects</span>
+    <div class="p-author h-card" hidden>
+      <img class="u-photo" src="/avatar.png" alt="rhg" />
+      <a class="p-name u-url" href="https://rhg.sh">rhg</a>
+    </div>
     {entries.map((entry) => (
       <a href={`/projects/${entry.id}`} class="h-entry u-url registry-row">
         <div class="reg-primary">

@@ -22,6 +22,10 @@ const rendered = await Promise.all(
 
   <div class="h-feed timeline">
     <span class="p-name" hidden>notes</span>
+    <div class="p-author h-card" hidden>
+      <img class="u-photo" src="/avatar.png" alt="rhg" />
+      <a class="p-name u-url" href="https://rhg.sh">rhg</a>
+    </div>
     {rendered.map(({ entry, Content }) => (
       <article class="h-entry timeline-entry">
         <div class="timeline-date mono">
@@ -32,7 +36,6 @@ const rendered = await Promise.all(
           <Content />
         </div>
         <a class="u-url" href={`/notes/${entry.id}/`} hidden></a>
-        <a class="u-author" href="/about" hidden></a>
       </article>
     ))}
   </div>
