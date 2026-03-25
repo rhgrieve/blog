@@ -1,17 +1,16 @@
 ---
 import Base from '../layouts/Base.astro';
-import { getRecentListens, type Listen } from '../lib/spotify';
-import { getRecentActivity, type GitHubActivity } from '../lib/github';
-import { getRecentHealth, type HealthEvent } from '../lib/health';
+import { getRecentListens, getRecentGitHub, getRecentHealth } from '../lib/timeline';
+import type { SpotifyListen, GitHubEvent, HealthEvent } from '../lib/timeline';
 
 const listens = await getRecentListens(200);
-const githubActivity = await getRecentActivity(30);
+const githubActivity = await getRecentGitHub(30);
 const healthEvents = await getRecentHealth(100);
 
 // unified timeline entry
 type TimelineItem =
-  | { kind: 'listen'; data: Listen; timestamp: Date }
-  | { kind: 'github'; data: GitHubActivity; timestamp: Date };
+  | { kind: 'listen'; data: SpotifyListen; timestamp: Date }
+  | { kind: 'github'; data: GitHubEvent; timestamp: Date };
 
 const items: TimelineItem[] = [
   ...listens.map((l) => ({ kind: 'listen' as const, data: l, timestamp: l.playedAt })),
@@ -68,7 +67,7 @@ function collapseRuns(dayItems: TimelineItem[]): DisplayItem[] {
       const hiddenItems = dayItems.slice(i + 1, runEnd - 1);
       const seen = new Map<string, string>();
       for (const h of hiddenItems) {
-        const names = (h as { data: Listen }).data.artist.split(', ');
+        const names = (h as { data: SpotifyListen }).data.artist.split(', ');
         for (const name of names) {
           const key = name.toLowerCase().trim();
           if (!seen.has(key)) seen.set(key, name.trim());
@@ -210,8 +209,8 @@ const githubLogo = '<path fill="#8b949e" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6
               } else {
                 // collapsed listen run
                 const c = item;
-                const first = c.first as { kind: 'listen'; data: Listen; timestamp: Date };
-                const last = c.last as { kind: 'listen'; data: Listen; timestamp: Date };
+                const first = c.first as { kind: 'listen'; data: SpotifyListen; timestamp: Date };
+                const last = c.last as { kind: 'listen'; data: SpotifyListen; timestamp: Date };
                 const fl = first.data;
                 const ll = last.data;
                 return (
@@ -242,7 +241,7 @@ const githubLogo = '<path fill="#8b949e" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6
 
                     <div class="listen-hidden" data-hidden>
                       {c.hidden.map((h) => {
-                        const hl = (h as { kind: 'listen'; data: Listen; timestamp: Date }).data;
+                        const hl = (h as { kind: 'listen'; data: SpotifyListen; timestamp: Date }).data;
                         return (
                           <a href={hl.url} class="timeline-entry" target="_blank" rel="noopener">
                             <span class="entry-icon">
