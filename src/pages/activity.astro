@@ -17,46 +17,33 @@ const items: TimelineItem[] = [
   ...githubActivity.map((g) => ({ kind: 'github' as const, data: g, timestamp: g.timestamp })),
 ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
-// aggregate step counts by day label
-const stepsByDay = new Map<string, number>();
-for (const h of healthEvents) {
-  if (h.type === 'steps' && h.value) {
-    const label = relativeDay(h.timestamp);
-    stepsByDay.set(label, (stepsByDay.get(label) || 0) + Number(h.value));
-  }
-}
-
-function relativeDay(date: Date): string {
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  if (days === 0) return 'today';
-  if (days === 1) return 'yesterday';
-  if (days < 7) return `${days} days ago`;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toLowerCase();
-}
+// pass health step data as JSON for client-side day grouping
+const stepEvents = healthEvents
+  .filter((h) => h.type === 'steps' && h.value)
+  .map((h) => ({ timestamp: h.timestamp.toISOString(), value: Number(h.value) }));
 
 // collapse consecutive listen runs (>3) into first + "x more" + last
+// and merge consecutive identical github events
 type DisplayItem =
   | TimelineItem
   | { kind: 'listen-collapsed'; first: TimelineItem; last: TimelineItem; hidden: TimelineItem[]; count: number; artistSummary: string }
   | { kind: 'github-merged'; data: GitHubEvent; timestamp: Date; count: number };
 
-function collapseRuns(dayItems: TimelineItem[]): DisplayItem[] {
+function collapseRuns(allItems: TimelineItem[]): DisplayItem[] {
   const result: DisplayItem[] = [];
   let i = 0;
 
-  while (i < dayItems.length) {
-    if (dayItems[i].kind === 'github') {
-      const first = dayItems[i];
+  while (i < allItems.length) {
+    if (allItems[i].kind === 'github') {
+      const first = allItems[i];
       const g = first.data as GitHubEvent;
       let runEnd = i + 1;
       while (
-        runEnd < dayItems.length &&
-        dayItems[runEnd].kind === 'github' &&
-        (dayItems[runEnd].data as GitHubEvent).type === g.type &&
-        (dayItems[runEnd].data as GitHubEvent).description === g.description &&
-        (dayItems[runEnd].data as GitHubEvent).repo === g.repo
+        runEnd < allItems.length &&
+        allItems[runEnd].kind === 'github' &&
+        (allItems[runEnd].data as GitHubEvent).type === g.type &&
+        (allItems[runEnd].data as GitHubEvent).description === g.description &&
+        (allItems[runEnd].data as GitHubEvent).repo === g.repo
       ) {
         runEnd++;
       }
@@ -70,21 +57,21 @@ function collapseRuns(dayItems: TimelineItem[]): DisplayItem[] {
       continue;
     }
 
-    if (dayItems[i].kind !== 'listen') {
-      result.push(dayItems[i]);
+    if (allItems[i].kind !== 'listen') {
+      result.push(allItems[i]);
       i++;
       continue;
     }
 
     // find the run of consecutive listens
     let runEnd = i;
-    while (runEnd < dayItems.length && dayItems[runEnd].kind === 'listen') {
+    while (runEnd < allItems.length && allItems[runEnd].kind === 'listen') {
       runEnd++;
     }
 
     const runLength = runEnd - i;
     if (runLength > 3) {
-      const hiddenItems = dayItems.slice(i + 1, runEnd - 1);
+      const hiddenItems = allItems.slice(i + 1, runEnd - 1);
       const seen = new Map<string, string>();
       for (const h of hiddenItems) {
         const names = (h as { data: SpotifyListen }).data.artist.split(', ');
@@ -106,15 +93,15 @@ function collapseRuns(dayItems: TimelineItem[]): DisplayItem[] {
 
       result.push({
         kind: 'listen-collapsed',
-        first: dayItems[i],
-        last: dayItems[runEnd - 1],
+        first: allItems[i],
+        last: allItems[runEnd - 1],
         hidden: hiddenItems,
         count: runLength - 2,
         artistSummary,
       });
     } else {
       for (let j = i; j < runEnd; j++) {
-        result.push(dayItems[j]);
+        result.push(allItems[j]);
       }
     }
     i = runEnd;
@@ -123,26 +110,7 @@ function collapseRuns(dayItems: TimelineItem[]): DisplayItem[] {
   return result;
 }
 
-type GroupedDay = {
-  label: string;
-  items: DisplayItem[];
-};
-
-const groupedRaw: { label: string; items: TimelineItem[] }[] = [];
-for (const item of items) {
-  const label = relativeDay(item.timestamp);
-  const existing = groupedRaw.find((g) => g.label === label);
-  if (existing) {
-    existing.items.push(item);
-  } else {
-    groupedRaw.push({ label, items: [item] });
-  }
-}
-
-const groupedCollapsed: GroupedDay[] = groupedRaw.map((g) => ({
-  label: g.label,
-  items: collapseRuns(g.items),
-}));
+const displayItems = collapseRuns(items);
 
 function shortRepo(full: string): string {
   return full.includes('/') ? full.split('/')[1] : full;
@@ -166,6 +134,8 @@ const githubLogo = '<path fill="#8b949e" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6
   <h1>activity</h1>
   <p class="page-desc">what i've been up to, automatically.</p>
 
+  <script type="application/json" id="step-data" set:html={JSON.stringify(stepEvents)} />
+
   {items.length === 0 && (
     <div class="empty">
       <p class="dim">no activity data available.</p>
@@ -173,140 +143,125 @@ const githubLogo = '<path fill="#8b949e" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6
     </div>
   )}
 
-  {groupedCollapsed.length > 0 && (
+  {displayItems.length > 0 && (
     <div class="timeline">
-      {groupedCollapsed.map((group) => (
-        <section class="timeline-day">
-          <h2 class="day-label mono">
-            {group.label}
-            {stepsByDay.has(group.label) && (
-              <span class="day-steps">
-                <svg viewBox="0 0 16 16" width="11" height="11"><Fragment set:html={sneakerIcon} /></svg>
-                {stepsByDay.get(group.label)!.toLocaleString()}
+      {displayItems.map((item) => {
+        if (item.kind === 'listen') {
+          const l = item.data;
+          return (
+            <a href={l.url} class="timeline-entry timeline-item" data-time={item.timestamp.toISOString()} target="_blank" rel="noopener">
+              <span class="entry-icon">
+                {l.albumArt ? (
+                  <img src={l.albumArt} alt="" width="32" height="32" loading="lazy" />
+                ) : (
+                  <span class="icon-placeholder">♫</span>
+                )}
               </span>
-            )}
-          </h2>
-          <div class="day-entries">
-            {group.items.map((item) => {
-              if (item.kind === 'listen') {
-                const l = item.data;
-                return (
-                  <a href={l.url} class="timeline-entry" target="_blank" rel="noopener">
-                    <span class="entry-icon">
-                      {l.albumArt ? (
-                        <img src={l.albumArt} alt="" width="32" height="32" loading="lazy" />
-                      ) : (
-                        <span class="icon-placeholder">♫</span>
-                      )}
-                    </span>
-                    <span class="entry-body">
-                      <span class="entry-primary">{l.track}</span>
-                      <span class="entry-secondary">{l.artist}</span>
-                    </span>
-                    <span class="entry-meta">
-                      <svg class="source-logo" viewBox="0 0 16 16" width="12" height="12"><Fragment set:html={spotifyLogo} /></svg>
-                      <time class="entry-time mono" data-time={item.timestamp.toISOString()}></time>
-                    </span>
-                  </a>
-                );
-              } else if (item.kind === 'github' || item.kind === 'github-merged') {
-                const g = item.kind === 'github' ? item.data : item.data;
-                const count = item.kind === 'github-merged' ? item.count : 0;
-                return (
-                  <a href={g.url} class="timeline-entry" target="_blank" rel="noopener">
-                    <span class="entry-icon gh-action-icon">
-                      <svg viewBox="0 0 16 16" width="16" height="16"><Fragment set:html={ghActionIcon[g.type] || ghActionIcon.push} /></svg>
-                    </span>
-                    <span class="entry-body">
-                      <span class="entry-primary">{g.description}{count > 1 && <span class="merge-count"> (x{count})</span>}</span>
-                      <span class="entry-secondary">{shortRepo(g.repo)}</span>
-                    </span>
-                    <span class="entry-meta">
-                      <svg class="source-logo" viewBox="0 0 16 16" width="12" height="12"><Fragment set:html={githubLogo} /></svg>
-                      <time class="entry-time mono" data-time={item.timestamp.toISOString()}></time>
-                    </span>
-                  </a>
-                );
-              } else {
-                // collapsed listen run
-                const c = item;
-                const first = c.first as { kind: 'listen'; data: SpotifyListen; timestamp: Date };
-                const last = c.last as { kind: 'listen'; data: SpotifyListen; timestamp: Date };
-                const fl = first.data;
-                const ll = last.data;
-                return (
-                  <div class="listen-group">
-                    <a href={fl.url} class="timeline-entry" target="_blank" rel="noopener">
+              <span class="entry-body">
+                <span class="entry-primary">{l.track}</span>
+                <span class="entry-secondary">{l.artist}</span>
+              </span>
+              <span class="entry-meta">
+                <svg class="source-logo" viewBox="0 0 16 16" width="12" height="12"><Fragment set:html={spotifyLogo} /></svg>
+                <time class="entry-time mono" data-time={item.timestamp.toISOString()}></time>
+              </span>
+            </a>
+          );
+        } else if (item.kind === 'github' || item.kind === 'github-merged') {
+          const g = item.data;
+          const count = item.kind === 'github-merged' ? item.count : 0;
+          return (
+            <a href={g.url} class="timeline-entry timeline-item" data-time={item.timestamp.toISOString()} target="_blank" rel="noopener">
+              <span class="entry-icon gh-action-icon">
+                <svg viewBox="0 0 16 16" width="16" height="16"><Fragment set:html={ghActionIcon[g.type] || ghActionIcon.push} /></svg>
+              </span>
+              <span class="entry-body">
+                <span class="entry-primary">{g.description}{count > 1 && <span class="merge-count"> (x{count})</span>}</span>
+                <span class="entry-secondary">{shortRepo(g.repo)}</span>
+              </span>
+              <span class="entry-meta">
+                <svg class="source-logo" viewBox="0 0 16 16" width="12" height="12"><Fragment set:html={githubLogo} /></svg>
+                <time class="entry-time mono" data-time={item.timestamp.toISOString()}></time>
+              </span>
+            </a>
+          );
+        } else {
+          // collapsed listen run
+          const c = item;
+          const first = c.first as { kind: 'listen'; data: SpotifyListen; timestamp: Date };
+          const last = c.last as { kind: 'listen'; data: SpotifyListen; timestamp: Date };
+          const fl = first.data;
+          const ll = last.data;
+          return (
+            <div class="listen-group timeline-item" data-time={first.timestamp.toISOString()}>
+              <a href={fl.url} class="timeline-entry" target="_blank" rel="noopener">
+                <span class="entry-icon">
+                  {fl.albumArt ? (
+                    <img src={fl.albumArt} alt="" width="32" height="32" loading="lazy" />
+                  ) : (
+                    <span class="icon-placeholder">♫</span>
+                  )}
+                </span>
+                <span class="entry-body">
+                  <span class="entry-primary">{fl.track}</span>
+                  <span class="entry-secondary">{fl.artist}</span>
+                </span>
+                <span class="entry-meta">
+                  <svg class="source-logo" viewBox="0 0 16 16" width="12" height="12"><Fragment set:html={spotifyLogo} /></svg>
+                  <time class="entry-time mono" data-time={first.timestamp.toISOString()}></time>
+                </span>
+              </a>
+
+              <button class="listen-expand" data-expand>
+                <span class="expand-label">+ {c.count} more featuring {c.artistSummary}</span>
+              </button>
+
+              <div class="listen-hidden" data-hidden>
+                {c.hidden.map((h) => {
+                  const hl = (h as { kind: 'listen'; data: SpotifyListen; timestamp: Date }).data;
+                  return (
+                    <a href={hl.url} class="timeline-entry" target="_blank" rel="noopener">
                       <span class="entry-icon">
-                        {fl.albumArt ? (
-                          <img src={fl.albumArt} alt="" width="32" height="32" loading="lazy" />
+                        {hl.albumArt ? (
+                          <img src={hl.albumArt} alt="" width="32" height="32" loading="lazy" />
                         ) : (
                           <span class="icon-placeholder">♫</span>
                         )}
                       </span>
                       <span class="entry-body">
-                        <span class="entry-primary">{fl.track}</span>
-                        <span class="entry-secondary">{fl.artist}</span>
+                        <span class="entry-primary">{hl.track}</span>
+                        <span class="entry-secondary">{hl.artist}</span>
                       </span>
                       <span class="entry-meta">
                         <svg class="source-logo" viewBox="0 0 16 16" width="12" height="12"><Fragment set:html={spotifyLogo} /></svg>
-                        <time class="entry-time mono" data-time={first.timestamp.toISOString()}></time>
+                        <time class="entry-time mono" data-time={h.timestamp.toISOString()}></time>
                       </span>
                     </a>
+                  );
+                })}
+              </div>
 
-                    <button class="listen-expand" data-expand>
-                      <span class="expand-label">+ {c.count} more featuring {c.artistSummary}</span>
-                    </button>
-
-                    <div class="listen-hidden" data-hidden>
-                      {c.hidden.map((h) => {
-                        const hl = (h as { kind: 'listen'; data: SpotifyListen; timestamp: Date }).data;
-                        return (
-                          <a href={hl.url} class="timeline-entry" target="_blank" rel="noopener">
-                            <span class="entry-icon">
-                              {hl.albumArt ? (
-                                <img src={hl.albumArt} alt="" width="32" height="32" loading="lazy" />
-                              ) : (
-                                <span class="icon-placeholder">♫</span>
-                              )}
-                            </span>
-                            <span class="entry-body">
-                              <span class="entry-primary">{hl.track}</span>
-                              <span class="entry-secondary">{hl.artist}</span>
-                            </span>
-                            <span class="entry-meta">
-                              <svg class="source-logo" viewBox="0 0 16 16" width="12" height="12"><Fragment set:html={spotifyLogo} /></svg>
-                              <time class="entry-time mono" data-time={h.timestamp.toISOString()}></time>
-                            </span>
-                          </a>
-                        );
-                      })}
-                    </div>
-
-                    <a href={ll.url} class="timeline-entry" target="_blank" rel="noopener">
-                      <span class="entry-icon">
-                        {ll.albumArt ? (
-                          <img src={ll.albumArt} alt="" width="32" height="32" loading="lazy" />
-                        ) : (
-                          <span class="icon-placeholder">♫</span>
-                        )}
-                      </span>
-                      <span class="entry-body">
-                        <span class="entry-primary">{ll.track}</span>
-                        <span class="entry-secondary">{ll.artist}</span>
-                      </span>
-                      <span class="entry-meta">
-                        <svg class="source-logo" viewBox="0 0 16 16" width="12" height="12"><Fragment set:html={spotifyLogo} /></svg>
-                        <time class="entry-time mono" data-time={last.timestamp.toISOString()}></time>
-                      </span>
-                    </a>
-                  </div>
-                );
-              }
-            })}
-          </div>
-        </section>
-      ))}
+              <a href={ll.url} class="timeline-entry" target="_blank" rel="noopener">
+                <span class="entry-icon">
+                  {ll.albumArt ? (
+                    <img src={ll.albumArt} alt="" width="32" height="32" loading="lazy" />
+                  ) : (
+                    <span class="icon-placeholder">♫</span>
+                  )}
+                </span>
+                <span class="entry-body">
+                  <span class="entry-primary">{ll.track}</span>
+                  <span class="entry-secondary">{ll.artist}</span>
+                </span>
+                <span class="entry-meta">
+                  <svg class="source-logo" viewBox="0 0 16 16" width="12" height="12"><Fragment set:html={spotifyLogo} /></svg>
+                  <time class="entry-time mono" data-time={last.timestamp.toISOString()}></time>
+                </span>
+              </a>
+            </div>
+          );
+        }
+      })}
     </div>
   )}
 </Base>
@@ -503,13 +458,92 @@ const githubLogo = '<path fill="#8b949e" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6
 
 <script>
   document.addEventListener('astro:page-load', () => {
-    document.querySelectorAll<HTMLTimeElement>('[data-time]').forEach((el) => {
+    // format times in local timezone
+    document.querySelectorAll<HTMLTimeElement>('time[data-time]').forEach((el) => {
       const iso = el.getAttribute('data-time');
       if (!iso) return;
       const date = new Date(iso);
       el.textContent = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
     });
 
+    // group items by local day and insert day headers
+    const timeline = document.querySelector('.timeline');
+    if (!timeline) return;
+
+    const items = Array.from(timeline.querySelectorAll<HTMLElement>('.timeline-item'));
+    if (items.length === 0) return;
+
+    // parse step data for day totals
+    const stepDataEl = document.getElementById('step-data');
+    const stepEvents: { timestamp: string; value: number }[] = stepDataEl ? JSON.parse(stepDataEl.textContent || '[]') : [];
+    const stepsByLocalDay = new Map<string, number>();
+    for (const s of stepEvents) {
+      const localDate = new Date(s.timestamp).toLocaleDateString('en-CA'); // YYYY-MM-DD
+      stepsByLocalDay.set(localDate, (stepsByLocalDay.get(localDate) || 0) + s.value);
+    }
+
+    function relativeDay(date: Date): string {
+      const now = new Date();
+      const todayStr = now.toLocaleDateString('en-CA');
+      const yesterdayDate = new Date(now);
+      yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+      const yesterdayStr = yesterdayDate.toLocaleDateString('en-CA');
+      const dateStr = date.toLocaleDateString('en-CA');
+
+      if (dateStr === todayStr) return 'today';
+      if (dateStr === yesterdayStr) return 'yesterday';
+
+      const diff = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+      if (diff < 7) return `${diff} days ago`;
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toLowerCase();
+    }
+
+    const sneakerSvg = '<svg viewBox="0 0 16 16" width="11" height="11"><path fill="currentColor" d="M1 11.5v-1c0-.83.67-1.5 1.5-1.5h.5l1-3.5C4.2 4.6 5.05 4 6 4h1c.55 0 1 .45 1 1v2.5l3.5 1c1.1.31 2 1.2 2.3 2.3l.2.7H15a1 1 0 011 1v.5a.5.5 0 01-.5.5h-14a.5.5 0 01-.5-.5z"/></svg>';
+
+    // group items by local date
+    const groups: { dateKey: string; label: string; elements: HTMLElement[] }[] = [];
+    for (const el of items) {
+      const iso = el.getAttribute('data-time');
+      if (!iso) continue;
+      const date = new Date(iso);
+      const dateKey = date.toLocaleDateString('en-CA');
+      const label = relativeDay(date);
+      const last = groups[groups.length - 1];
+      if (last && last.dateKey === dateKey) {
+        last.elements.push(el);
+      } else {
+        groups.push({ dateKey, label, elements: [el] });
+      }
+    }
+
+    // rebuild timeline with day sections
+    timeline.innerHTML = '';
+    for (const group of groups) {
+      const section = document.createElement('section');
+      section.className = 'timeline-day';
+
+      let headerHTML = group.label;
+      const steps = stepsByLocalDay.get(group.dateKey);
+      if (steps) {
+        headerHTML += `<span class="day-steps">${sneakerSvg} ${steps.toLocaleString()}</span>`;
+      }
+
+      const h2 = document.createElement('h2');
+      h2.className = 'day-label mono';
+      h2.innerHTML = headerHTML;
+
+      const entries = document.createElement('div');
+      entries.className = 'day-entries';
+      for (const el of group.elements) {
+        entries.appendChild(el);
+      }
+
+      section.appendChild(h2);
+      section.appendChild(entries);
+      timeline.appendChild(section);
+    }
+
+    // listen expand toggles
     document.querySelectorAll('[data-expand]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const hidden = btn.nextElementSibling as HTMLElement;
