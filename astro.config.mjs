@@ -4,7 +4,7 @@ import mdx from '@astrojs/mdx';
 import cloudflare from '@astrojs/cloudflare';
 
 export default defineConfig({
-  site: 'https://example.com',
+  site: 'https://rhg.sh',
   output: 'server',
   adapter: cloudflare(),
   integrations: [mdx()],
