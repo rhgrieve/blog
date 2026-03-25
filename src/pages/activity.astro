@@ -36,10 +36,6 @@ function relativeDay(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toLowerCase();
 }
 
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
-}
-
 // collapse consecutive listen runs (>3) into first + "x more" + last
 type DisplayItem =
   | TimelineItem
@@ -209,7 +205,7 @@ const githubLogo = '<path fill="#8b949e" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6
                     </span>
                     <span class="entry-meta">
                       <svg class="source-logo" viewBox="0 0 16 16" width="12" height="12"><Fragment set:html={spotifyLogo} /></svg>
-                      <span class="entry-time mono">{formatTime(item.timestamp)}</span>
+                      <time class="entry-time mono" data-time={item.timestamp.toISOString()}></time>
                     </span>
                   </a>
                 );
@@ -227,7 +223,7 @@ const githubLogo = '<path fill="#8b949e" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6
                     </span>
                     <span class="entry-meta">
                       <svg class="source-logo" viewBox="0 0 16 16" width="12" height="12"><Fragment set:html={githubLogo} /></svg>
-                      <span class="entry-time mono">{formatTime(item.timestamp)}</span>
+                      <time class="entry-time mono" data-time={item.timestamp.toISOString()}></time>
                     </span>
                   </a>
                 );
@@ -254,7 +250,7 @@ const githubLogo = '<path fill="#8b949e" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6
                       </span>
                       <span class="entry-meta">
                         <svg class="source-logo" viewBox="0 0 16 16" width="12" height="12"><Fragment set:html={spotifyLogo} /></svg>
-                        <span class="entry-time mono">{formatTime(first.timestamp)}</span>
+                        <time class="entry-time mono" data-time={first.timestamp.toISOString()}></time>
                       </span>
                     </a>
 
@@ -282,7 +278,7 @@ const githubLogo = '<path fill="#8b949e" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6
                             </span>
                             <span class="entry-meta">
                               <svg class="source-logo" viewBox="0 0 16 16" width="12" height="12"><Fragment set:html={spotifyLogo} /></svg>
-                              <span class="entry-time mono">{formatTime(h.timestamp)}</span>
+                              <time class="entry-time mono" data-time={h.timestamp.toISOString()}></time>
                             </span>
                           </a>
                         );
@@ -303,7 +299,7 @@ const githubLogo = '<path fill="#8b949e" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6
                       </span>
                       <span class="entry-meta">
                         <svg class="source-logo" viewBox="0 0 16 16" width="12" height="12"><Fragment set:html={spotifyLogo} /></svg>
-                        <span class="entry-time mono">{formatTime(last.timestamp)}</span>
+                        <time class="entry-time mono" data-time={last.timestamp.toISOString()}></time>
                       </span>
                     </a>
                   </div>
@@ -509,6 +505,13 @@ const githubLogo = '<path fill="#8b949e" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6
 
 <script>
   document.addEventListener('astro:page-load', () => {
+    document.querySelectorAll<HTMLTimeElement>('[data-time]').forEach((el) => {
+      const iso = el.getAttribute('data-time');
+      if (!iso) return;
+      const date = new Date(iso);
+      el.textContent = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+    });
+
     document.querySelectorAll('[data-expand]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const hidden = btn.nextElementSibling as HTMLElement;
