@@ -29,7 +29,7 @@ export interface HealthEvent {
 
 async function getDB(): Promise<D1Database | null> {
   try {
-    const { env } = await import('cloudflare:workers');
+    const { env } = await import('cloudflare:workers') as { env: { DB?: D1Database } };
     return env.DB ?? null;
   } catch {
     return null;
@@ -41,7 +41,12 @@ async function getDB(): Promise<D1Database | null> {
 const TIMELINE_API = import.meta.env.TIMELINE_API_URL;
 const API_KEY = import.meta.env.TIMELINE_API_KEY;
 
-async function fetchFromAPI(source: string, limit: number): Promise<any[]> {
+interface APIItem {
+  timestamp: string;
+  data: Record<string, string>;
+}
+
+async function fetchFromAPI(source: string, limit: number): Promise<APIItem[]> {
   if (!TIMELINE_API) {
     console.error(`[timeline] TIMELINE_API_URL not set, cannot fetch ${source}`);
     return [];
@@ -60,7 +65,7 @@ async function fetchFromAPI(source: string, limit: number): Promise<any[]> {
     return [];
   }
 
-  const { items } = (await res.json()) as { items: any[] };
+  const { items } = (await res.json()) as { items: APIItem[] };
   return items;
 }
 
