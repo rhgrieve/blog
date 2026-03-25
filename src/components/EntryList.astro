@@ -15,9 +15,10 @@ interface Props {
   entries: Entry[];
   basePath: string;
   showSummary?: boolean;
+  feedName?: string;
 }
 
-const { entries, basePath, showSummary = false } = Astro.props;
+const { entries, basePath, showSummary = false, feedName } = Astro.props;
 
 const published = entries
   .filter((e) => !e.data.draft)
@@ -26,18 +27,20 @@ const published = entries
 
 {published.length === 0 && <p class="dim">Nothing here yet.</p>}
 
-<ul class="entry-list">
+<ul class="h-feed entry-list">
+  {feedName && <span class="p-name" hidden>{feedName}</span>}
   {published.map((entry) => (
-    <li>
-      <a href={`${basePath}/${entry.id}`}>
-        <span class="entry-title">{entry.data.title}</span>
+    <li class="h-entry">
+      <a href={`${basePath}/${entry.id}`} class="u-url">
+        <span class="p-name entry-title">{entry.data.title}</span>
         <span class="entry-date mono">
-          <FormattedDate date={entry.data.date} />
+          <FormattedDate date={entry.data.date} class="dt-published" />
         </span>
       </a>
       {showSummary && entry.data.summary && (
-        <p class="entry-summary">{entry.data.summary}</p>
+        <p class="p-summary entry-summary">{entry.data.summary}</p>
       )}
+      <a class="u-author" href="/about" hidden></a>
     </li>
   ))}
 </ul>

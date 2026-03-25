@@ -13,21 +13,22 @@ function shortDate(date: Date) {
 ---
 
 <Base title="Projects" description="Experiments, tools, and things I've built.">
-  <h1>projects</h1>
+  <h1 class="page-title">projects</h1>
   <p class="page-desc">registry of things built, in progress, or archived.</p>
 
-  <div class="registry">
+  <div class="h-feed registry">
+    <span class="p-name" hidden>projects</span>
     {entries.map((entry) => (
-      <a href={`/projects/${entry.id}`} class="registry-row">
+      <a href={`/projects/${entry.id}`} class="h-entry u-url registry-row">
         <div class="reg-primary">
-          <span class="reg-name">{entry.data.title}</span>
+          <span class="p-name reg-name">{entry.data.title}</span>
           {entry.data.summary && (
-            <span class="reg-desc">{entry.data.summary}</span>
+            <span class="p-summary reg-desc">{entry.data.summary}</span>
           )}
         </div>
         <span class="reg-meta mono">
           <span class={`reg-status reg-status--${entry.data.status}`}>{entry.data.status}</span>
-          <span class="reg-date">{shortDate(entry.data.date)}</span>
+          <time class="dt-published reg-date" datetime={entry.data.date.toISOString()}>{shortDate(entry.data.date)}</time>
         </span>
       </a>
     ))}

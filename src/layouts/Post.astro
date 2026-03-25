@@ -13,23 +13,26 @@ const { title, date, summary, tags = [] } = Astro.props;
 ---
 
 <Base title={title} description={summary}>
-  <article>
+  <article class="h-entry">
     <header class="post-header">
-      <h1>{title}</h1>
+      <h1 class="p-name">{title}</h1>
       <div class="post-meta mono">
-        <FormattedDate date={date} />
+        <FormattedDate date={date} class="dt-published" />
         {tags.length > 0 && (
           <span class="tags">
             {tags.map((tag) => (
-              <span class="tag">{tag}</span>
+              <a class="tag p-category" href={`/tags/${tag}/`}>{tag}</a>
             ))}
           </span>
         )}
       </div>
+      {summary && <p class="p-summary" hidden>{summary}</p>}
     </header>
-    <div class="prose">
+    <div class="e-content prose">
       <slot />
     </div>
+    <a class="u-author" href="/about" hidden></a>
+    <a class="u-url" href={Astro.url.pathname} hidden></a>
   </article>
 </Base>
 

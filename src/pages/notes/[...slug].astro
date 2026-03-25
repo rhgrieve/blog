@@ -17,20 +17,23 @@ const { Content } = await render(entry);
 ---
 
 <Base title="note" description="a note.">
-  <article>
+  <article class="h-entry">
     <div class="note-meta mono">
-      <FormattedDate date={entry.data.date} />
+      <FormattedDate date={entry.data.date} class="dt-published" />
       {entry.data.tags.length > 0 && (
         <span class="note-tags">
           {entry.data.tags.map((tag) => (
-            <span class="note-tag">#{tag}</span>
+            <a class="note-tag p-category" href={`/tags/${tag}/`}>#{tag}</a>
           ))}
         </span>
       )}
     </div>
-    <div class="prose note-body">
+    {/* No p-name — absence makes this a note, not an article */}
+    <div class="e-content prose note-body">
       <Content />
     </div>
+    <a class="u-url" href={`/notes/${entry.id}/`} hidden></a>
+    <a class="u-author" href="/about" hidden></a>
   </article>
 </Base>
 

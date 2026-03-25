@@ -30,6 +30,8 @@ export interface HealthEvent {
 // ── D1 Binding ────────────────────────────────────────────
 
 async function getDB(): Promise<D1Database | null> {
+  // In dev mode, skip D1 and use the HTTP API fallback
+  if (import.meta.env.DEV) return null;
   try {
     const { env } = await import('cloudflare:workers') as { env: { DB?: D1Database } };
     return env.DB ?? null;

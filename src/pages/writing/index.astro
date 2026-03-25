@@ -8,13 +8,12 @@ const entries = await getCollection('writing');
 ---
 
 <Base title="Writing" description="Longer essays and thoughtful posts.">
-  <h1>Writing</h1>
+  <h1 class="page-title">Writing</h1>
   <p class="page-desc">Longer form. Essays, reflections, technical thinking.</p>
-  <EntryList entries={entries} basePath="/writing" showSummary={true} />
+  <EntryList entries={entries} basePath="/writing" showSummary={true} feedName="writing" />
 </Base>
 
 <style>
-  h1 { margin-bottom: 0.5rem; }
   .page-desc {
     color: var(--text-dim);
     font-size: 0.9rem;

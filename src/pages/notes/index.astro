@@ -17,18 +17,22 @@ const rendered = await Promise.all(
 ---
 
 <Base title="Notes" description="Short observations and quick thoughts.">
-  <h1>notes</h1>
+  <h1 class="page-title">notes</h1>
   <p class="page-desc">short thoughts, 280 characters or less.</p>
 
-  <div class="timeline">
+  <div class="h-feed timeline">
+    <span class="p-name" hidden>notes</span>
     {rendered.map(({ entry, Content }) => (
-      <article class="timeline-entry">
+      <article class="h-entry timeline-entry">
         <div class="timeline-date mono">
-          <FormattedDate date={entry.data.date} />
+          <FormattedDate date={entry.data.date} class="dt-published" />
         </div>
-        <div class="timeline-content prose">
+        {/* No p-name — notes, not articles */}
+        <div class="e-content timeline-content prose">
           <Content />
         </div>
+        <a class="u-url" href={`/notes/${entry.id}/`} hidden></a>
+        <a class="u-author" href="/about" hidden></a>
       </article>
     ))}
   </div>
