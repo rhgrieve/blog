@@ -3,9 +3,10 @@ export const prerender = true;
 import Base from '../../layouts/Base.astro';
 import FormattedDate from '../../components/FormattedDate.astro';
 import { getCollection, render } from 'astro:content';
+import { isVisible } from '../../lib/drafts';
 
 const entries = (await getCollection('notes'))
-  .filter((e) => !e.data.draft)
+  .filter(isVisible)
   .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 
 const rendered = await Promise.all(

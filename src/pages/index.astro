@@ -4,18 +4,19 @@ import Base from '../layouts/Base.astro';
 import EntryList from '../components/EntryList.astro';
 import FormattedDate from '../components/FormattedDate.astro';
 import { getCollection, render } from 'astro:content';
+import { isVisible } from '../lib/drafts';
 
 const writing = await getCollection('writing');
 const notes = await getCollection('notes');
 const projects = await getCollection('projects');
 
 const recentWriting = writing
-  .filter((e) => !e.data.draft)
+  .filter(isVisible)
   .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
   .slice(0, 3);
 
 const recentNotes = notes
-  .filter((e) => !e.data.draft)
+  .filter(isVisible)
   .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
   .slice(0, 3);
 
@@ -70,14 +71,14 @@ const renderedNotes = await Promise.all(
     </section>
   )}
 
-  {projects.filter((e) => !e.data.draft).length > 0 && (
+  {projects.filter(isVisible).length > 0 && (
     <section class="section">
       <h2 class="section-heading">
         <a href="/projects">Projects</a>
       </h2>
       <div class="registry">
         {projects
-          .filter((e) => !e.data.draft)
+          .filter(isVisible)
           .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
           .map((entry) => (
             <a href={`/projects/${entry.id}`} class="registry-row">

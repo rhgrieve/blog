@@ -1,5 +1,6 @@
 ---
 import FormattedDate from './FormattedDate.astro';
+import { isVisible } from '../lib/drafts';
 
 interface Entry {
   id: string;
@@ -21,7 +22,7 @@ interface Props {
 const { entries, basePath, showSummary = false, feedName } = Astro.props;
 
 const published = entries
-  .filter((e) => !e.data.draft)
+  .filter(isVisible)
   .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 ---
 
@@ -36,7 +37,10 @@ const published = entries
   {published.map((entry) => (
     <li class="h-entry">
       <a href={`${basePath}/${entry.id}`} class="u-url">
-        <span class="p-name entry-title">{entry.data.title}</span>
+        <span class="p-name entry-title">
+          {entry.data.draft && <span class="draft-badge">draft</span>}
+          {entry.data.title}
+        </span>
         <span class="entry-date mono">
           <FormattedDate date={entry.data.date} class="dt-published" />
         </span>
@@ -85,6 +89,17 @@ const published = entries
     flex-shrink: 0;
     font-size: 0.72rem;
     color: var(--text-dim);
+  }
+
+  .draft-badge {
+    color: #f0c040;
+    border: 1px solid #f0c040;
+    border-radius: 3px;
+    padding: 0.05rem 0.4rem;
+    font-size: 0.65rem;
+    font-family: var(--font-mono);
+    letter-spacing: 0.1em;
+    margin-right: 0.4rem;
   }
 
   .entry-summary {

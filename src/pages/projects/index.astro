@@ -2,9 +2,10 @@
 export const prerender = true;
 import Base from '../../layouts/Base.astro';
 import { getCollection } from 'astro:content';
+import { isVisible } from '../../lib/drafts';
 
 const entries = (await getCollection('projects'))
-  .filter((e) => !e.data.draft)
+  .filter(isVisible)
   .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 
 function shortDate(date: Date) {
