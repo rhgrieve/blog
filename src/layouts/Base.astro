@@ -26,8 +26,7 @@ const pageTitle = title === 'Home' ? siteTitle : `${title} — ${siteTitle}`;
     <link rel="token_endpoint" href="https://tokens.indieauth.com/token" />
     <link rel="me" href="https://github.com/rhgrieve" />
     <link rel="preconnect" href="https://rsms.me/" crossorigin />
-    <link rel="preload" href="https://rsms.me/inter/inter.css" as="style" onload="this.onload=null;this.rel='stylesheet'" />
-    <noscript><link rel="stylesheet" href="https://rsms.me/inter/inter.css" /></noscript>
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
     <ClientRouter />
   </head>
   <body>
@@ -60,6 +59,27 @@ const pageTitle = title === 'Home' ? siteTitle : `${title} — ${siteTitle}`;
     </div>
   </body>
 </html>
+
+<script>
+  function initCopyButtons() {
+    document.querySelectorAll('pre').forEach((pre) => {
+      if (pre.querySelector('.copy-btn')) return;
+      const btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.textContent = 'copy';
+      btn.addEventListener('click', async () => {
+        const code = pre.querySelector('code');
+        await navigator.clipboard.writeText(code?.textContent ?? '');
+        btn.textContent = 'copied!';
+        setTimeout(() => (btn.textContent = 'copy'), 1500);
+      });
+      pre.appendChild(btn);
+    });
+  }
+
+  initCopyButtons();
+  document.addEventListener('astro:after-swap', initCopyButtons);
+</script>
 
 <style is:global>
   @import '../styles/global.css';
