@@ -3,7 +3,7 @@ export const prerender = true;
 import { getCollection, render } from 'astro:content';
 import Base from '../../layouts/Base.astro';
 import FormattedDate from '../../components/FormattedDate.astro';
-import Heart from '../../components/Heart.astro';
+
 
 export async function getStaticPaths() {
   const entries = await getCollection('notes');
@@ -33,7 +33,6 @@ const { Content } = await render(entry);
     <div class="e-content prose note-body">
       <Content />
     </div>
-    <Heart slug={`notes/${entry.data.date.getTime()}`} />
     <a class="u-url" href={`/notes/${entry.id}/`} hidden></a>
     <a class="u-author" href="/about" hidden></a>
   </article>

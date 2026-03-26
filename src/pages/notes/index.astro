@@ -4,6 +4,7 @@ import Base from '../../layouts/Base.astro';
 import FormattedDate from '../../components/FormattedDate.astro';
 import { getCollection, render } from 'astro:content';
 import { isVisible } from '../../lib/drafts';
+import Heart from '../../components/Heart.astro';
 
 const entries = (await getCollection('notes'))
   .filter(isVisible)
@@ -36,6 +37,7 @@ const rendered = await Promise.all(
         <div class="e-content timeline-content prose">
           <Content />
         </div>
+        <Heart slug={`notes/${entry.data.date.getTime()}`} compact />
         <a class="u-url" href={`/notes/${entry.id}/`} hidden></a>
       </article>
     ))}

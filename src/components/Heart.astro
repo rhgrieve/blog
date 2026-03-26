@@ -1,14 +1,15 @@
 ---
 interface Props {
   slug: string;
+  compact?: boolean;
 }
 
-const { slug } = Astro.props;
+const { slug, compact = false } = Astro.props;
 const apiBase = import.meta.env.TIMELINE_API_URL || '';
 const heartUrl = `${apiBase}/api/heart/${slug}`;
 ---
 
-<div class="heart-reaction" data-heart-url={heartUrl}>
+<div class:list={['heart-reaction', { compact }]} data-heart-url={heartUrl}>
   <button class="heart-btn" aria-label="Send a heart reaction" type="button">
     <svg class="heart-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
       <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
@@ -24,24 +25,28 @@ const heartUrl = `${apiBase}/api/heart/${slug}`;
     border-top: 1px solid var(--border);
   }
 
+  .heart-reaction.compact {
+    margin-top: 0.5rem;
+    padding-top: 0;
+    border-top: none;
+  }
+
   .heart-btn {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
     background: none;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 0.4rem 0.75rem;
+    border: none;
+    padding: 0.4rem 0;
     color: var(--text-dim);
     cursor: pointer;
     font-family: var(--font-mono);
     font-size: 0.8rem;
-    transition: color 0.15s, border-color 0.15s, transform 0.15s;
+    transition: color 0.15s, transform 0.15s;
   }
 
   .heart-btn:hover:not([disabled]) {
     color: var(--text-bright);
-    border-color: var(--text-dim);
   }
 
   .heart-btn:active:not([disabled]) {
@@ -54,7 +59,6 @@ const heartUrl = `${apiBase}/api/heart/${slug}`;
 
   .heart-btn.reacted {
     color: #ff6b8a;
-    border-color: #ff6b8a40;
   }
 
   .heart-btn.reacted .heart-icon {
