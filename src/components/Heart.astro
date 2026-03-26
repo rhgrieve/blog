@@ -5,8 +5,7 @@ interface Props {
 }
 
 const { slug, compact = false } = Astro.props;
-const apiBase = import.meta.env.TIMELINE_API_URL || '';
-const heartUrl = `${apiBase}/api/heart/${slug}`;
+const heartUrl = `/api/heart/${slug}`;
 ---
 
 <div class:list={['heart-reaction', { compact }]} data-heart-url={heartUrl}>
