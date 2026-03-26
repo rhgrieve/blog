@@ -108,15 +108,12 @@ const heartUrl = `${apiBase}/api/heart/${slug}`;
         btn.setAttribute('aria-pressed', 'true');
       }
 
-      // always show count — default to 0
-      countEl.textContent = '0';
-
       // fetch count
       fetch(url, { headers: { Accept: 'application/json' } })
         .then((r) => r.json())
         .then((data: Record<string, number>) => {
           const count = data['❤️'] || 0;
-          countEl.textContent = String(count);
+          countEl.textContent = count > 0 ? String(count) : '';
         })
         .catch(() => {});
 
