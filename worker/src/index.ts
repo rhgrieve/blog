@@ -263,9 +263,8 @@ function corsHeaders(): HeadersInit {
 function parseEmoji(raw: string): string | null {
   const trimmed = raw.trim().replace(/=+$/, '');
   if (!trimmed) return null;
-  const segments = Array.from(
-    new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(trimmed),
-  );
+  const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+  const segments = Array.from(segmenter.segment(trimmed));
   const first = segments.length > 0 ? segments[0].segment : null;
   if (first && /\p{Emoji}/u.test(first)) return first;
   return null;
