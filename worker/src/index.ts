@@ -247,6 +247,179 @@ async function handleHealthIngest(request: Request, env: Env): Promise<Response>
   });
 }
 
+// ── Notes Sync ───────────────────────────────────────────
+
+interface NotesPayload {
+  notes: {
+    body: string;
+    created: string;
+    modified: string;
+  }[];
+}
+
+function parseDate(input: string): Date {
+  // Shortcuts sometimes concatenates multiple dates with \n — take the last
+  // (first is often a rounded/default date, last is the precise one)
+  const lines = input.split('\n').map(l => l.trim()).filter(Boolean);
+  const firstLine = lines[lines.length - 1];
+
+  // Try native parse first (handles ISO 8601 and most locale formats)
+  const d = new Date(firstLine);
+  if (!isNaN(d.getTime())) return d;
+
+  // Handle iOS Shortcuts format: "March 26, 2026 at 4:25 PM"
+  const cleaned = firstLine.replace(/\s+at\s+/i, ' ');
+  const d2 = new Date(cleaned);
+  if (!isNaN(d2.getTime())) return d2;
+
+  // Fallback: use current time
+  return new Date();
+}
+
+function parseHashtags(body: string): { content: string; tags: string[]; isDraft: boolean } {
+  const tagPattern = /#([a-zA-Z0-9_-]+)/g;
+  const tags: string[] = [];
+  let isDraft = false;
+  let match;
+
+  while ((match = tagPattern.exec(body)) !== null) {
+    const tag = match[1].toLowerCase();
+    if (tag === 'draft') {
+      isDraft = true;
+    } else {
+      tags.push(tag);
+    }
+  }
+
+  const content = body.replace(tagPattern, '').replace(/\s+/g, ' ').trim();
+  return { content, tags, isDraft };
+}
+
+async function handleNotesIngest(request: Request, env: Env): Promise<Response> {
+  if (env.API_KEY) {
+    const auth = request.headers.get('Authorization');
+    if (auth !== `Bearer ${env.API_KEY}`) {
+      return new Response(JSON.stringify({ error: 'unauthorized' }), {
+        status: 401,
+        headers: corsHeaders(),
+      });
+    }
+  }
+
+  const payload = (await request.json()) as NotesPayload;
+  if (!payload.notes?.length) {
+    return new Response(JSON.stringify({ error: 'no notes' }), {
+      status: 400,
+      headers: corsHeaders(),
+    });
+  }
+
+  const now = new Date().toISOString();
+  const upsertStmt = env.DB.prepare(
+    `INSERT INTO notes (dedup_key, content, raw_content, tags, draft, deleted, created_at, updated_at, synced_at)
+     VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)
+     ON CONFLICT(dedup_key) DO UPDATE SET
+       content = excluded.content,
+       raw_content = excluded.raw_content,
+       tags = excluded.tags,
+       draft = excluded.draft,
+       deleted = 0,
+       updated_at = excluded.updated_at,
+       synced_at = excluded.synced_at`,
+  );
+
+  const dedupKeys: string[] = [];
+  const batch: D1PreparedStatement[] = [];
+
+  for (const note of payload.notes) {
+    const { content, tags, isDraft } = parseHashtags(note.body);
+    if (!content) continue;
+
+    const dedupKey = parseDate(note.created).toISOString();
+    dedupKeys.push(dedupKey);
+
+    batch.push(
+      upsertStmt.bind(
+        dedupKey,
+        content,
+        note.body,
+        JSON.stringify(tags),
+        isDraft ? 1 : 0,
+        dedupKey,
+        parseDate(note.modified).toISOString(),
+        now,
+      ),
+    );
+  }
+
+  if (batch.length > 0) {
+    await env.DB.batch(batch);
+  }
+
+  // soft-delete notes no longer in the folder
+  let deleted = 0;
+  if (dedupKeys.length > 0) {
+    const placeholders = dedupKeys.map(() => '?').join(', ');
+    const result = await env.DB.prepare(
+      `UPDATE notes SET deleted = 1 WHERE deleted = 0 AND dedup_key NOT IN (${placeholders})`,
+    ).bind(...dedupKeys).run();
+    deleted = result.meta.changes ?? 0;
+  }
+
+  console.log(`[notes] synced ${batch.length}, soft-deleted ${deleted}`);
+  return new Response(JSON.stringify({ synced: batch.length, deleted }), {
+    headers: corsHeaders(),
+  });
+}
+
+async function handleNotesGet(request: Request, env: Env): Promise<Response> {
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders() });
+  }
+
+  if (env.API_KEY) {
+    const auth = request.headers.get('Authorization');
+    if (auth !== `Bearer ${env.API_KEY}`) {
+      return new Response(JSON.stringify({ error: 'unauthorized' }), {
+        status: 401,
+        headers: corsHeaders(),
+      });
+    }
+  }
+
+  const url = new URL(request.url);
+  const includeDrafts = url.searchParams.get('include_drafts') === 'true';
+  const since = url.searchParams.get('since');
+  const limit = Math.min(parseInt(url.searchParams.get('limit') || '200', 10), 1000);
+
+  let q = 'SELECT dedup_key, content, tags, draft, created_at, updated_at FROM notes WHERE deleted = 0';
+  const params: (string | number)[] = [];
+
+  if (!includeDrafts) {
+    q += ' AND draft = 0';
+  }
+  if (since) {
+    q += ' AND created_at >= ?';
+    params.push(since);
+  }
+  q += ' ORDER BY created_at DESC LIMIT ?';
+  params.push(limit);
+
+  const rows = await env.DB.prepare(q).bind(...params).all();
+  const notes = rows.results.map((row) => ({
+    id: row.dedup_key as string,
+    content: row.content as string,
+    tags: JSON.parse(row.tags as string) as string[],
+    draft: (row.draft as number) === 1,
+    created_at: row.created_at as string,
+    updated_at: row.updated_at as string,
+  }));
+
+  return new Response(JSON.stringify({ notes }), {
+    headers: corsHeaders(),
+  });
+}
+
 // ── API Handler ──────────────────────────────────────────
 
 function corsHeaders(): HeadersInit {
@@ -398,6 +571,28 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     }
   }
 
+  if (!source || source === 'notes') {
+    let q = 'SELECT dedup_key, content, tags, created_at FROM notes WHERE deleted = 0 AND draft = 0';
+    const params: string[] = [];
+    if (since) { q += ' AND created_at >= ?'; params.push(since); }
+    if (until) { q += ' AND created_at < ?'; params.push(until); }
+    q += ' ORDER BY created_at DESC LIMIT ?';
+    params.push(String(limit));
+
+    const rows = await env.DB.prepare(q).bind(...params).all();
+    for (const row of rows.results) {
+      items.push({
+        source: 'notes',
+        timestamp: row.created_at as string,
+        data: {
+          id: row.dedup_key as string,
+          content: row.content as string,
+          tags: row.tags as string,
+        },
+      });
+    }
+  }
+
   // sort merged results by timestamp descending
   items.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 
@@ -419,6 +614,12 @@ export default {
     }
     if (url.pathname === '/api/health' && request.method === 'OPTIONS') {
       return new Response(null, { headers: corsHeaders() });
+    }
+    if (url.pathname === '/api/notes' && request.method === 'POST') {
+      return handleNotesIngest(request, env);
+    }
+    if (url.pathname === '/api/notes' && (request.method === 'GET' || request.method === 'OPTIONS')) {
+      return handleNotesGet(request, env);
     }
 
     // OpenHeart reactions: /api/heart/<slug>

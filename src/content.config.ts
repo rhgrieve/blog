@@ -1,5 +1,6 @@
 import { defineCollection } from 'astro:content';
 import { glob } from 'astro/loaders';
+import type { Loader } from 'astro/loaders';
 import { z } from 'astro/zod';
 
 const writing = defineCollection({
@@ -13,8 +14,68 @@ const writing = defineCollection({
   }),
 });
 
+const notesLoader = {
+  name: 'notes-api',
+  async load({ store, logger, parseData }) {
+    const apiUrl = import.meta.env.TIMELINE_API_URL;
+    const apiKey = import.meta.env.TIMELINE_API_KEY;
+
+    if (!apiUrl) {
+      logger.warn('TIMELINE_API_URL not set, skipping notes API fetch');
+      return;
+    }
+
+    try {
+      const res = await fetch(`${apiUrl}/api/notes`, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
+      });
+
+      if (!res.ok) {
+        logger.error(`Notes API returned ${res.status}`);
+        return;
+      }
+
+      const { notes: apiNotes } = (await res.json()) as {
+        notes: {
+          id: string;
+          content: string;
+          tags: string[];
+          draft: boolean;
+          created_at: string;
+          updated_at: string;
+        }[];
+      };
+
+      store.clear();
+
+      for (const note of apiNotes) {
+        const id = String(new Date(note.created_at).getTime());
+        const data = await parseData({
+          id,
+          data: {
+            date: new Date(note.created_at),
+            tags: note.tags,
+            draft: note.draft,
+          },
+        });
+        store.set({
+          id,
+          data,
+          rendered: { html: `<p>${note.content}</p>` },
+        });
+      }
+
+      logger.info(`Loaded ${apiNotes.length} notes from API`);
+    } catch (err) {
+      logger.error(`Failed to fetch notes: ${err}`);
+    }
+  },
+} satisfies Loader;
+
 const notes = defineCollection({
-  loader: glob({ pattern: '**/*.{md,mdx}', base: './src/content/notes' }),
+  loader: notesLoader,
   schema: z.object({
     date: z.coerce.date(),
     tags: z.array(z.string()).default([]),

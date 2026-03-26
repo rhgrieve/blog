@@ -43,3 +43,19 @@ CREATE TABLE IF NOT EXISTS reactions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_reactions_slug ON reactions(slug);
+
+CREATE TABLE IF NOT EXISTS notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  dedup_key TEXT UNIQUE NOT NULL,
+  content TEXT NOT NULL,
+  raw_content TEXT NOT NULL,
+  tags TEXT NOT NULL DEFAULT '[]',
+  draft INTEGER NOT NULL DEFAULT 0,
+  deleted INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  synced_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notes_deleted ON notes(deleted);
