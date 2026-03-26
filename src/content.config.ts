@@ -17,8 +17,8 @@ const writing = defineCollection({
 const notesLoader = {
   name: 'notes-api',
   async load({ store, logger, parseData }) {
-    const apiUrl = import.meta.env.TIMELINE_API_URL;
-    const apiKey = import.meta.env.TIMELINE_API_KEY;
+    const apiUrl = import.meta.env.TIMELINE_API_URL || process.env.TIMELINE_API_URL;
+    const apiKey = import.meta.env.TIMELINE_API_KEY || process.env.TIMELINE_API_KEY;
 
     if (!apiUrl) {
       logger.warn('TIMELINE_API_URL not set, skipping notes API fetch');
