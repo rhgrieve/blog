@@ -33,3 +33,13 @@ CREATE TABLE IF NOT EXISTS health_events (
 );
 
 CREATE INDEX IF NOT EXISTS idx_health_timestamp ON health_events(timestamp DESC);
+
+CREATE TABLE IF NOT EXISTS reactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT NOT NULL,
+  emoji TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  UNIQUE(slug, emoji)
+);
+
+CREATE INDEX IF NOT EXISTS idx_reactions_slug ON reactions(slug);
