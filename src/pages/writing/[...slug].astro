@@ -12,7 +12,9 @@ export async function getStaticPaths() {
 }
 
 const { entry } = Astro.props;
-const { Content } = await render(entry);
+const { Content, remarkPluginFrontmatter } = await render(entry);
+const words = entry.body ? entry.body.split(/\s+/).length : 0;
+const readingTime = Math.max(1, Math.round(words / 230));
 ---
 
 <Post
@@ -21,6 +23,8 @@ const { Content } = await render(entry);
   summary={entry.data.summary}
   tags={entry.data.tags}
   draft={entry.data.draft}
+  readingTime={readingTime}
+  heartSlug={`writing/${entry.id}`}
 >
   <Content />
 </Post>

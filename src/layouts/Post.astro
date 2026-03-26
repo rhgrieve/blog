@@ -1,6 +1,7 @@
 ---
 import Base from './Base.astro';
 import FormattedDate from '../components/FormattedDate.astro';
+import Heart from '../components/Heart.astro';
 
 interface Props {
   title: string;
@@ -8,9 +9,11 @@ interface Props {
   summary?: string;
   tags?: string[];
   draft?: boolean;
+  readingTime?: number;
+  heartSlug?: string;
 }
 
-const { title, date, summary, tags = [], draft = false } = Astro.props;
+const { title, date, summary, tags = [], draft = false, readingTime, heartSlug } = Astro.props;
 ---
 
 <Base title={title} description={summary}>
@@ -20,6 +23,7 @@ const { title, date, summary, tags = [], draft = false } = Astro.props;
       <div class="post-meta mono">
         {draft && <span class="draft-badge">draft</span>}
         <FormattedDate date={date} class="dt-published" />
+        {readingTime && <span>{readingTime} min read</span>}
         {tags.length > 0 && (
           <span class="tags">
             {tags.map((tag) => (
@@ -33,6 +37,8 @@ const { title, date, summary, tags = [], draft = false } = Astro.props;
     <div class="e-content prose">
       <slot />
     </div>
+    {heartSlug && <Heart slug={heartSlug} />}
+    <nav class="toc" aria-label="Table of contents"></nav>
     <div class="p-author h-card" hidden>
       <img class="u-photo" src="/avatar.png" alt="rhg" />
       <a class="p-name u-url" href="https://rhg.sh">rhg</a>
@@ -81,4 +87,141 @@ const { title, date, summary, tags = [], draft = false } = Astro.props;
     font-size: 0.65rem;
     letter-spacing: 0.1em;
   }
+
+  .toc {
+    display: none;
+  }
+
+  @media (min-width: 1200px) {
+    .toc {
+      display: block;
+      position: fixed;
+      top: var(--toc-top, 8rem);
+      left: calc(50% + 370px);
+      width: 220px;
+    }
+
+    .toc:empty {
+      display: none;
+    }
+
+    .toc :global(ol) {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      border-left: 1px solid var(--border);
+      padding-left: 0.75rem;
+    }
+
+    .toc :global(li + li) {
+      margin-top: 0.4rem;
+    }
+
+    .toc :global(a) {
+      font-size: 0.7rem;
+      font-family: var(--font-mono);
+      color: var(--text-dim);
+      opacity: 0.6;
+      text-decoration: none;
+      transition: color 0.15s, opacity 0.15s;
+      display: block;
+      line-height: 1.4;
+    }
+
+    .toc :global(a:hover) {
+      color: var(--text);
+      opacity: 1;
+      text-shadow: none;
+    }
+
+    .toc :global(a.active) {
+      color: var(--text-bright);
+      opacity: 1;
+    }
+
+    .toc :global(li[data-depth="3"]) {
+      padding-left: 0.75rem;
+    }
+
+    .toc :global(li[data-depth="4"]) {
+      padding-left: 1.5rem;
+    }
+
+  }
 </style>
+
+<script>
+  function initToc() {
+    const prose = document.querySelector('.e-content.prose');
+    const nav = document.querySelector('.toc');
+    if (!prose || !nav) return;
+
+    const headings = prose.querySelectorAll('h2, h3, h4');
+    if (headings.length < 2) {
+      nav.innerHTML = '';
+      return;
+    }
+
+    // ensure each heading has an id for linking
+    headings.forEach((h) => {
+      if (!h.id) {
+        h.id = h.textContent!.trim().toLowerCase().replace(/[^\w]+/g, '-').replace(/^-|-$/g, '');
+      }
+    });
+
+    const ol = document.createElement('ol');
+    headings.forEach((h) => {
+      const li = document.createElement('li');
+      li.dataset.depth = h.tagName[1];
+      const a = document.createElement('a');
+      a.href = `#${h.id}`;
+      a.textContent = h.textContent!.trim();
+      li.appendChild(a);
+      ol.appendChild(li);
+    });
+    nav.innerHTML = '';
+    nav.appendChild(ol);
+
+    // track active heading based on scroll position
+    const links = nav.querySelectorAll('a');
+    const headingEls = Array.from(headings) as HTMLElement[];
+
+    function updateActive() {
+      // if near bottom of page, activate last heading
+      if (window.innerHeight + window.scrollY >= document.body.scrollHeight - 50) {
+        links.forEach((l) => l.classList.remove('active'));
+        links[links.length - 1]?.classList.add('active');
+        return;
+      }
+
+      const scrollY = window.scrollY + 100;
+      let activeIdx = 0;
+
+      for (let i = 0; i < headingEls.length; i++) {
+        if (headingEls[i].offsetTop <= scrollY) {
+          activeIdx = i;
+        }
+      }
+
+      links.forEach((l) => l.classList.remove('active'));
+      links[activeIdx]?.classList.add('active');
+    }
+
+    updateActive();
+    window.addEventListener('scroll', updateActive, { passive: true });
+
+    // align TOC with prose top — measure absolute position, use as fixed top
+    const proseTop = prose.getBoundingClientRect().top + window.scrollY;
+    (nav as HTMLElement).style.setProperty('--toc-top', `${proseTop}px`);
+
+    // once scrolled past, clamp to a comfortable top margin
+    function clampToc() {
+      const scrolled = window.scrollY > proseTop - 32;
+      (nav as HTMLElement).style.setProperty('--toc-top', scrolled ? '2rem' : `${proseTop - window.scrollY}px`);
+    }
+    window.addEventListener('scroll', clampToc, { passive: true });
+  }
+
+  initToc();
+  document.addEventListener('astro:after-swap', initToc);
+</script>
