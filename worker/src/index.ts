@@ -258,6 +258,49 @@ function corsHeaders(): HeadersInit {
   };
 }
 
+// ── Heart Reactions (OpenHeart Protocol) ─────────────────
+
+function parseEmoji(raw: string): string | null {
+  const trimmed = raw.trim().replace(/=+$/, '');
+  if (!trimmed) return null;
+  const segments = Array.from(
+    new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(trimmed),
+  );
+  const first = segments.length > 0 ? segments[0].segment : null;
+  if (first && /\p{Emoji}/u.test(first)) return first;
+  return null;
+}
+
+async function handleHeartPost(slug: string, request: Request, env: Env): Promise<Response> {
+  const body = await request.text();
+  const emoji = parseEmoji(body);
+  if (!emoji) {
+    return new Response(JSON.stringify({ error: 'invalid emoji' }), {
+      status: 400,
+      headers: corsHeaders(),
+    });
+  }
+
+  await env.DB.prepare(
+    'INSERT INTO reactions (slug, emoji, count) VALUES (?, ?, 1) ON CONFLICT(slug, emoji) DO UPDATE SET count = count + 1',
+  ).bind(slug, emoji).run();
+
+  return new Response('ok', { headers: corsHeaders() });
+}
+
+async function handleHeartGet(slug: string, env: Env): Promise<Response> {
+  const rows = await env.DB.prepare(
+    'SELECT emoji, count FROM reactions WHERE slug = ?',
+  ).bind(slug).all();
+
+  const result: Record<string, number> = {};
+  for (const row of rows.results) {
+    result[row.emoji as string] = row.count as number;
+  }
+
+  return new Response(JSON.stringify(result), { headers: corsHeaders() });
+}
+
 async function handleApi(request: Request, env: Env): Promise<Response> {
   if (request.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders() });
@@ -378,6 +421,24 @@ export default {
     if (url.pathname === '/api/health' && request.method === 'OPTIONS') {
       return new Response(null, { headers: corsHeaders() });
     }
+
+    // OpenHeart reactions: /api/heart/<slug>
+    if (url.pathname.startsWith('/api/heart/')) {
+      const slug = url.pathname.slice('/api/heart/'.length);
+      if (!slug) return new Response('not found', { status: 404 });
+
+      if (request.method === 'OPTIONS') {
+        return new Response(null, { headers: corsHeaders() });
+      }
+      if (request.method === 'POST') {
+        return handleHeartPost(slug, request, env);
+      }
+      if (request.method === 'GET') {
+        return handleHeartGet(slug, env);
+      }
+      return new Response('method not allowed', { status: 405 });
+    }
+
     return new Response('not found', { status: 404 });
   },
 
