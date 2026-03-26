@@ -9,7 +9,8 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "new": "node scripts/new.mjs"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^13.1.3",
