@@ -1,0 +1,132 @@
+---
+interface Props {
+  slug: string;
+}
+
+const { slug } = Astro.props;
+const apiBase = import.meta.env.TIMELINE_API_URL || '';
+const heartUrl = `${apiBase}/api/heart/${slug}`;
+---
+
+<div class="heart-reaction" data-heart-url={heartUrl}>
+  <button class="heart-btn" aria-label="Send a heart reaction" type="button">
+    <svg class="heart-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
+    <span class="heart-count"></span>
+  </button>
+</div>
+
+<style>
+  .heart-reaction {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .heart-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.4rem 0.75rem;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    transition: color 0.15s, border-color 0.15s, transform 0.15s;
+  }
+
+  .heart-btn:hover:not([disabled]) {
+    color: var(--text-bright);
+    border-color: var(--text-dim);
+  }
+
+  .heart-btn:active:not([disabled]) {
+    transform: scale(0.95);
+  }
+
+  .heart-btn[disabled] {
+    cursor: default;
+  }
+
+  .heart-btn.reacted {
+    color: #ff6b8a;
+    border-color: #ff6b8a40;
+  }
+
+  .heart-btn.reacted .heart-icon {
+    fill: #ff6b8a;
+    stroke: #ff6b8a;
+  }
+
+  .heart-icon {
+    transition: fill 0.2s, stroke 0.2s;
+  }
+
+  .heart-count:empty {
+    display: none;
+  }
+</style>
+
+<script>
+  function initHeart() {
+    document.querySelectorAll<HTMLDivElement>('.heart-reaction').forEach((el) => {
+      const url = el.dataset.heartUrl;
+      if (!url) return;
+
+      const btn = el.querySelector<HTMLButtonElement>('.heart-btn')!;
+      const countEl = el.querySelector<HTMLSpanElement>('.heart-count')!;
+      const storageKey = '_open_heart';
+
+      function getReacted(): Set<string> {
+        const raw = localStorage.getItem(storageKey) || '';
+        return new Set(raw.split(',').filter(Boolean));
+      }
+
+      function markReacted() {
+        const set = getReacted();
+        set.add(url!);
+        localStorage.setItem(storageKey, Array.from(set).join(','));
+        btn.classList.add('reacted');
+        btn.disabled = true;
+        btn.setAttribute('aria-pressed', 'true');
+      }
+
+      // check if already reacted
+      if (getReacted().has(url)) {
+        btn.classList.add('reacted');
+        btn.disabled = true;
+        btn.setAttribute('aria-pressed', 'true');
+      }
+
+      // fetch count
+      fetch(url, { headers: { Accept: 'application/json' } })
+        .then((r) => r.json())
+        .then((data: Record<string, number>) => {
+          const count = data['❤️'] || 0;
+          countEl.textContent = count > 0 ? String(count) : '';
+        })
+        .catch(() => {});
+
+      btn.addEventListener('click', () => {
+        if (btn.disabled) return;
+
+        // optimistic update
+        const current = parseInt(countEl.textContent || '0', 10);
+        countEl.textContent = String(current + 1);
+        markReacted();
+
+        fetch(url!, { method: 'POST', body: '❤️', mode: 'cors' }).catch(() => {
+          // revert on failure
+          countEl.textContent = current > 0 ? String(current) : '';
+        });
+      });
+    });
+  }
+
+  initHeart();
+  document.addEventListener('astro:after-swap', initHeart);
+</script>
