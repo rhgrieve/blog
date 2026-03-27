@@ -14,7 +14,7 @@ However, I've found myself needing to juggle a couple computers at the same time
 
 So - I'm documenting the process here for me to reference in the future and in case it helps anyone else. 
 
-Note: [click here](#setup-guide) to jump straight to the setup guide.
+If you're just here for the setup guide, [click here](#setup-guide)
 
 ### keeping track of dotfiles
 
@@ -40,8 +40,8 @@ Track your home directory with a bare git repository (usually aliased to a custo
 
 ##### cons
 
-- A bit of a unique setup, requires custom alias and `--work-tree=$HOME` flag
-- Need to be mindful of .gitignore; either broad coverage or set `status.showUntrackedFiles no` (which is what I do) 
+- Not an every-day git setup, requires custom alias and `--work-tree=$HOME` flag
+- Need to be mindful of `.gitignore`; either broad coverage or set `status.showUntrackedFiles no` (which is what I do) 
 - Possible to accidentally commit sensitive files
 
 ---
@@ -91,4 +91,89 @@ Ultimately, I chose to go with a bare git repo in my home directory for the foll
 
 ## setup guide
 
-1. 
+### dotfiles bare repo setup
+
+1. Initialize a bare repository in your home folder
+
+```bash
+git init --bare $HOME/.dotfiles.git
+```
+
+2. Create an alias to manage your dotfiles repo
+
+```bash
+alias dot='git --git-dir=$HOME/.dotfiles.git/ --work-tree=$HOME'
+```
+
+3. Ignore untracked files in the home directory
+
+```bash
+dot config --local status.showUntrackedFiles no
+```
+## manage homebrew installs via `Brewfile`
+
+1. From your home directory, generate a `Brewfile` of your existing packages
+
+```bash
+brew bundle dump --force
+
+# if you want it in a specific folder
+brew bundle dump --file=~/.config/brewfile/Brewfile
+```
+
+2. Check your `Brewfile` into the dotfiles repo
+
+```bash
+dot add Brewfile
+dot commit -m "add brewfile"
+```
+
+3. Run `brew bundle install` to sync your installed packages against the `Brewfile`
+
+```bash
+# if your Brewfile is not in the home directory
+brew bundle install --file=~/.config/brewfile/Brewfile
+```
+
+### create bootstrap script
+
+Here is a simple bootstrap script that you can extend as needed:
+
+```bash
+#!/bin/bash
+# bootstrap.sh
+
+# exit immediately if anything exits with non-zero status
+set -e
+
+# set up environment variables (replace with your own github details)
+DOTFILES_REPO="git@github.com:rhgrieve/dotfiles.git"
+DOTFILES_DIR="$HOME/.dotfiles"
+
+# clone the bare repo
+git clone --bare "$DOTFILES_REPO" "$DOTFILES_DIR"
+
+# we don't have our alias yet, so define a function for our dotfiles repo
+function dot {
+  git --git-dir="$DOTFILES_DIR/" --work-tree="$HOME" "$@"
+}
+
+# try to merge locally, backing up conflicting files if needed
+dot checkout 2>/dev/null || {
+  echo "conflicts detected: backing up pre-existing files..."
+  dot checkout 2>&1 | grep "^\s" | awk '{print $1}' | xargs -I{} sh -c 'mkdir -p "$HOME/.dotfiles-backup/$(dirname {})" && mv "$HOME/{}" "$HOME/.dotfiles-backup/{}"'
+  dot checkout
+}
+
+# ensure home directory is not tracked 
+dot config --local status.showUntrackedFiles no
+
+# install homebrew if missing
+which brew &>/dev/null || /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# print confirmation and next steps
+echo "done! next steps:"
+echo "  1. source ~/.zshrc"
+```
+
+
