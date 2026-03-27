@@ -91,6 +91,7 @@ code {
 }
 
 pre {
+  position: relative;
   background: var(--bg-raised) !important;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -98,6 +99,31 @@ pre {
   overflow-x: auto;
   font-size: 0.85rem;
   line-height: 1.6;
+}
+
+pre .copy-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-dim);
+  padding: 0.25rem 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+pre:hover .copy-btn {
+  opacity: 1;
+}
+
+pre .copy-btn:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
 }
 
 pre code {
